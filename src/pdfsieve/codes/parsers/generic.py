@@ -1,5 +1,5 @@
 """General-purpose payloads: vCard, MECARD, WiFi, mailto, tel, sms, geo, URL, plus header-only detection of
-rail tickets (UIC 918.3), EU digital COVID certificates, the German medication plan (BMP), Deutsche Post
+EU digital COVID certificates, the German medication plan (BMP), Deutsche Post
 franking marks and the eA/eP codes of German private medical invoices."""
 
 from __future__ import annotations
@@ -135,16 +135,6 @@ def url(data: bytes, aim=None) -> dict | None:
     ok = bool(parsed.hostname)
     return {"type": "url", "valid": ok, "errors": [] if ok else ["no host"], "url": text.strip(),
             "scheme": parsed.scheme.lower(), "host": parsed.hostname}
-
-
-def uic_ticket(data: bytes, aim=None) -> dict | None:
-    if not data.startswith(b"#UT"):
-        return None
-    version = data[3:5].decode("ascii", "replace")
-    issuer = data[5:9].decode("ascii", "replace")
-    return {"type": "uic_ticket", "valid": version in ("01", "02"), "errors": [] if version in ("01", "02")
-            else [f"unknown version {version!r}"], "version": version, "issuer_code": issuer,
-            "note": "signed UIC 918.3 rail ticket; content is compressed and not decoded here"}
 
 
 def eu_dcc(data: bytes, aim=None) -> dict | None:

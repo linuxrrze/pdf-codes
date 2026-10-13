@@ -1,0 +1,170 @@
+# Recognised formats
+
+This page lists every format pdfsieve recognises, how far it decodes each one, and where its specification
+is published. Specifications are linked, not copied, because most are licensed by their publishers.
+
+How far a format is decoded:
+
+| Level | Meaning |
+|---|---|
+| **full** | Every field defined by the specification is parsed and validated (checksums, value ranges). |
+| **partial** | The specification is public, but only some fields or some variants are decoded. |
+| **header** | Recognised by its documented header only. The content is encrypted or the layout is not public. |
+| **inferred** | Fields were worked out by comparing samples with what is printed next to the code. Not official. |
+
+## Barcode payloads (`pdf-codes`, `code-parse`)
+
+The classifier tries the parsers below in order. The first one whose header matches decides the `type`
+(`src/pdfsieve/codes/classify.py`). A damaged code keeps its type and gets `"valid": false` plus `errors`.
+Deviations that are common in practice and harmless go into `warnings` instead. Anything that matches no
+parser is `raw`.
+
+| `type` | Format | Recognised by | Level | Specification |
+|---|---|---|---|---|
+| `epc` | EPC QR code ("GiroCode"), SEPA credit transfer | `BCD` header, version, charset, `SCT`/`INST` | full | EPC069-12, [European Payments Council](https://www.europeanpaymentscouncil.eu/document-library/guidance-documents/quick-response-code-guidelines-enable-data-capture-initiation) |
+| `swiss_qr` | Swiss QR-bill (payment part) | `SPC` / `02xx` / `1` header | full | SIX Implementation Guidelines, [six-group.com](https://www.six-group.com/en/products-services/banking-services/payment-standardization/standards/qr-bill.html) |
+| `gs1` | GS1 element strings (GS1-128, GS1 DataMatrix/QR/DataBar/DotCode) | AIM identifier `]C1` `]d2` `]Q3` `]e0` `]J1`, or `(AI)…` text | partial | GS1 General Specifications, [gs1.org](https://www.gs1.org/standards/barcodes-epcrfid-id-keys/gs1-general-specifications) |
+| `uic_ticket` | Rail ticket (UIC 918.3), e.g. Deutsche Bahn online tickets | `#UT` + version, issuer, key ID | partial | UIC leaflet 918-3 (not freely available); layouts from [uic-918-3](https://github.com/justusjonas74/uic-918-3) (MIT) |
+| `eu_dcc` | EU Digital COVID Certificate | `HC1:` | header | [eu-dcc-hcert-spec](https://github.com/ehn-dcc-development/eu-dcc-hcert-spec) |
+| `medication_plan` | Bundeseinheitlicher Medikationsplan (BMP) | `<MP` XML | header | [KBV: Medikationsplan](https://www.kbv.de/html/medikationsplan.php) |
+| `deutsche_post_franking` | Deutsche Post franking mark ("Matrixcode") | `DEA` + binary data, DataMatrix | header; inferred for the 42-byte variant | [Deutsche Post: Matrixcode](https://www.deutschepost.de/de/f/frankierung/matrixcode.html), layout not public |
+| `pkv_invoice_code` | eA/eP codes on private medical invoices (PKV, Beihilfe) | `eA`/`eP` + digit + base64-like text, DataMatrix | header (encrypted) | [lemniscus helpdesk](https://helpdesk.lemniscus.de/docs/rechnung-mit-ea-ep-codes), technical spec not public |
+| `kbv_form` | KBV Blankoformular barcode on statutory medical forms ("Muster") | form number, page letters, version, TAB-separated, PDF417 | partial | [KBV Technisches Handbuch Blankoformularbedruckung](https://update.kbv.de/ita-update/Blankoformulare/KBV_ITA_VGEX_Technisches_Handbuch_BFB.pdf) |
+| `vcard` | vCard | `BEGIN:VCARD` | partial | [RFC 6350](https://www.rfc-editor.org/rfc/rfc6350) |
+| `mecard` | MECARD contact | `MECARD:` | partial | de-facto, see [ZXing: Barcode Contents](https://github.com/zxing/zxing/wiki/Barcode-Contents) |
+| `wifi` | Wi-Fi network | `WIFI:` | full | de-facto, see [ZXing: Barcode Contents](https://github.com/zxing/zxing/wiki/Barcode-Contents) |
+| `mailto` | e-mail link | `mailto:` | full | [RFC 6068](https://www.rfc-editor.org/rfc/rfc6068) |
+| `tel` | phone number | `tel:` | full | [RFC 3966](https://www.rfc-editor.org/rfc/rfc3966) |
+| `sms` | SMS | `sms:` / `SMSTO:` | full | [RFC 5724](https://www.rfc-editor.org/rfc/rfc5724), `SMSTO:` is de-facto |
+| `geo` | geographic location | `geo:` | full | [RFC 5870](https://www.rfc-editor.org/rfc/rfc5870) |
+| `url` | web link | `http://` / `https://` | full | [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986) |
+
+### Notes per format
+
+**`epc`**
+- Validates:
+  - the IBAN checksum;
+  - BIC format, with the BIC required in version 001;
+  - the amount;
+  - the purpose code;
+  - the RF creditor reference checksum;
+  - the 331-byte limit;
+  - that a structured reference and unstructured text don't appear together.
+- Accepts:
+  - CRLF line endings;
+  - character sets 1–8.
+- Warnings:
+  - **Decimal comma** (`EUR482,57`): the standard requires a point, but German banks accept codes with a
+    comma and billing services produce them, so a comma is a warning, not an error.
+  - Thousands separators and more than two decimal places are still errors.
+
+**`swiss_qr`**
+- Validates:
+  - the 31–34 line layout and the reserved empty ultimate-creditor block;
+  - CH/LI IBANs, including the QR-IBAN range 30000–31999;
+  - the reference against the IBAN type: QR reference with recursive mod-10 check digit, RF creditor
+    reference, or none;
+  - currency and the `EPD` trailer.
+
+**`gs1`**
+- Splits element strings by the GS1 rules: predefined lengths and FNC1/GS separators.
+- Checks the check digits of GTIN, SSCC and GLN.
+- Converts dates (YYMMDD) and decimal measures (`310n` etc.).
+- Names only the common application identifiers.
+
+**`uic_ticket`**
+- Container: `#UT`, version, issuer (RICS code, e.g. `0080` = Deutsche Bahn), key ID, signature (50 bytes for
+  version 01, 64 for 02), then zlib-compressed records. Decompression is capped at 1 MB.
+- Decoded records:
+  - `U_HEAD`: issuer, order number, creation time, language.
+  - `U_TLAY` ("RCT2"): the printed ticket text with line/column positions, e.g. stations, validity, route.
+  - `0080BL` versions 02 and 03 (Deutsche Bahn): validity and serial number per order, plus the named S-blocks,
+    e.g. traveller name, number of passengers, class.
+- Other records (e.g. `U_FLEX`, the newer ASN.1 format) are listed with a warning, not decoded.
+- The signature is **not verified**, so `signature_verified` is `null`. Verifying it needs the issuers' public keys
+  from [railpublickey.uic.org](https://railpublickey.uic.org/).
+- **Privacy:** tickets normally contain the traveller's name.
+
+**`deutsche_post_franking`**
+- `DEA` = DE (Germany) + A (Deutsche Post), as documented by Deutsche Post. The rest of the layout is not
+  published; Deutsche Post's own DataMatrixCodeChecker reads it.
+- For the 42-byte variant, these fields were inferred from three letters by two senders, and appear under
+  `inferred`:
+
+  | Bytes | Field |
+  |---|---|
+  | 10–11 | postage in cents |
+  | 12–13 | mailing date as DDDYY (day of year × 100 + year) |
+  | 17–18 | the middle number of the printed line `*…*NNNN*…*` |
+  | 19–21 | the start of the printed hex line |
+
+- The last four bytes match no standard CRC-16/CRC-32, sum or truncated hash, and no CRC-16 polynomial at all.
+  Presumably they are the cryptographic signature.
+
+**`pkv_invoice_code`**
+- An industry scheme of private health insurers and Beihilfe offices.
+- **eA** ("elektronischer Abrechnungscode", top right of the invoice) holds personal data: recipient's
+  address, patient's date of birth.
+- **eP** ("elektronischer Positionscode", bottom left) holds the invoice data without personal data.
+- Both are encrypted and only decodable by the insurers' and Beihilfe apps.
+- Observed plain parts of eP: `eP` + 8 digits + base64 (16 bytes) + 1 digit + base64 (32 bytes) + 10 digits.
+  The last 4 digits matched the invoice counter of the billing centre's account number in two samples.
+  This observation is not used by the parser.
+
+**`kbv_form`**
+- Every form starts with:
+  - the form code (Muster number, 2 digits);
+  - the form-code extension: upper-case letters mark the variant (e.g. `10` + `A` = Muster 10A), lower-case
+    letters the copy or page;
+  - the barcode version.
+- Recognised for every form that has a barcode table in the handbook.
+- Official form names come from the `DN` attribute of the KBV
+  [Ausfüllhilfe](https://update.kbv.de/ita-update/Blankoformulare/Ausfuellhilfe.zip) XML files.
+- Field names are decoded for **Muster 6 (Überweisungsschein), version 12**, the table in chapter 3.4.1 of
+  handbook version 4.80. That includes:
+  - dates converted to ISO format;
+  - coded values the handbook defines (sex, curative/preventive, type of examination);
+  - ICD-10-GM codes with certainty (G/V/Z/A) and side (R/L/B) extracted.
+- Other forms and versions are reported with their raw fields and a warning. Adding one means copying its
+  table from chapter 3 into `FIELD_TABLES` in `src/pdfsieve/codes/parsers/kbv.py`.
+- **Privacy:** the barcode is not encrypted and normally contains health data: diagnoses, insurer, date of
+  birth, address.
+
+### Symbologies
+
+Decoding is done by [zxing-cpp](https://github.com/zxing-cpp/zxing-cpp), which reads:
+- 2-D codes: QR, Micro QR, rMQR, DataMatrix, Aztec, PDF417, MaxiCode;
+- linear codes: the EAN/UPC family, Code 39/93/128, Codabar, ITF, DataBar and DX film edge.
+
+The `symbology_identifier` field is the AIM symbology identifier (ISO/IEC 15424, not freely available). Its
+modifier tells, for example, GS1 content (`]C1`, `]d2`, `]Q3`) apart from plain content.
+
+## E-invoices (`einvoice-info`, `zugferd2xrechnung`, `xrechnung2zugferd`, `einvoice-validate`)
+
+| Format | What pdfsieve does | Specification |
+|---|---|---|
+| ZUGFeRD 1.0, 2.0, 2.1+ | detect (attachment, XMP, profile), extract | [FeRD: ZUGFeRD](https://www.ferd-net.de/standards/zugferd) |
+| Factur-X | same as ZUGFeRD 2.1+, which is technically identical | [FNFE-MPE: Factur-X](https://fnfe-mpe.org/factur-x/) |
+| XRechnung (CII and UBL) | detect, extract, validate, convert CII→UBL, embed CII | [XRechnung (KoSIT)](https://xeinkauf.de/xrechnung/) |
+| EN 16931 (semantic model, CII D16B / UBL 2.1 syntaxes) | profile detection, validation via KoSIT | EN 16931-1 (CEN, not freely available) |
+| PDF/A-3 | XMP identification, associated files, output intent | ISO 19005-3 (not freely available), checked with [veraPDF](https://verapdf.org) |
+
+Tools and test data used:
+- [KoSIT validator](https://github.com/itplr-kosit/validator) and its
+  [XRechnung configuration](https://github.com/itplr-kosit/validator-configuration-xrechnung);
+- [phax en16931-cii2ubl](https://github.com/phax/en16931-cii2ubl);
+- [ZUGFeRD corpus](https://github.com/ZUGFeRD/corpus) and the
+  [XRechnung test suite](https://github.com/itplr-kosit/xrechnung-testsuite).
+
+[docs/decisions/0001-optional-java-dependency.md](decisions/0001-optional-java-dependency.md) explains why
+validation and conversion use Java.
+
+## Adding a format
+
+1. Write a parser, either as a module in `src/pdfsieve/codes/parsers/` or as a function in `generic.py`. Its
+   signature is `match(data: bytes, aim: str | None) -> dict | None`. Return `None` unless the header
+   matches. Check the symbology via `aim` when the format prescribes one; `aim` is `None` when called from
+   `code-parse`.
+2. Register it in `PARSERS` in `src/pdfsieve/codes/classify.py`.
+3. Add tests with invented data only. Real codes often contain personal or health data.
+4. Add a row and notes to this page, with a specification link and the decoding level.

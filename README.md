@@ -82,13 +82,9 @@ Each record contains:
 - `outside_cropbox`: whether the code lies outside the visible area;
 - `source`: which passes found it.
 
-Payload types: `epc`, `swiss_qr`, `gs1`, `vcard`, `mecard`, `wifi`, `mailto`, `tel`, `sms`, `geo`, `url`, plus
-header-only recognition of `uic_ticket`, `eu_dcc`, `medication_plan` and `deutsche_post_franking`
-(postage DataMatrix starting with `DEA`). Its layout is not public. For the common 42-byte variant, postage,
-mailing date and two printed reference values are reported under `inferred`, worked out by comparing samples
-with the printed text; this is not an official decoding.
-Also recognised: `pkv_invoice_code`, the encrypted eA/eP DataMatrix codes on German private medical invoices
-(PKV/Beihilfe scheme), which only insurers' apps can decode.
+Payload types include `epc`, `swiss_qr`, `gs1`, `kbv_form`, `pkv_invoice_code`, `deutsche_post_franking`,
+`vcard`, `wifi`, `url` and more. [docs/formats.md](docs/formats.md) lists every recognised format with how far
+it is decoded and a link to its specification.
 
 How classification works:
 - The first parser whose header matches decides the type, and then validates the structure (IBAN checksums,

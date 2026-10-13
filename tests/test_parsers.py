@@ -142,7 +142,6 @@ def test_gs1_needs_marker():
     (b"SMSTO:+491701234567:Hi there", "sms", "body", "Hi there"),
     (b"geo:49.5973,11.0049", "geo", "latitude", 49.5973),
     (b"https://www.fau.de/path?q=1", "url", "host", "www.fau.de"),
-    (b"#UT01ABCD...", "uic_ticket", "issuer_code", "ABCD"),
     (b"HC1:NCFOXN%TS3DH3ZSUZK", "eu_dcc", "valid", True),
     (b'<MP v="026" U="..."><P g="Max"/></MP>', "medication_plan", "version", "026"),
 ])
