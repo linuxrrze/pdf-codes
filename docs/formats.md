@@ -32,6 +32,7 @@ parser is `raw`.
 | `kbv_form` | KBV Blankoformular barcode on statutory medical forms ("Muster") | form number, page letters, version, TAB-separated, PDF417 | partial | [KBV Technisches Handbuch Blankoformularbedruckung](https://update.kbv.de/ita-update/Blankoformulare/KBV_ITA_VGEX_Technisches_Handbuch_BFB.pdf) |
 | `iata_bcbp` | IATA Bar Coded Boarding Pass (boarding passes, e-ticket itinerary receipts) | `M` + number of legs, fixed-width fields, hex size fields | full (mandatory and conditional items) | IATA Resolution 792 (not freely available); [BCBP Implementation Guide](https://www.iata.org/contentassets/1dccc9ed041b4f3bbdcf8ee8682e75c4/2021_03_02-bcbp-implementation-guide-version-7-.pdf); field lengths from [bcbp](https://github.com/georgesmith46/bcbp) (MIT) |
 | `kassensichv_receipt` | German cash-register receipt QR code (KassenSichV, TSE) | `V0;` + 12 fields separated by `;` | full; signature not verified | DSFinV-K 2.4, Anhang I, [Bundeszentralamt für Steuern](https://www.bzst.de/DE/Unternehmen/Aussenpruefungen/DigitaleSchnittstelleFinV/digitaleschnittstellefinv_node.html) |
+| `dhl_return_label` | DHL return label QR code (sent by merchants for printer-free returns) | `RON\|` + 25 fields separated by `\|` | inferred; Identcode and Leitcode checked | not published; check digits: [paketda](https://www.paketda.de/firmenkunden/paket-pruefziffern.html), Leitcode layout: [ActiveBarcode](https://www.activebarcode.com/barcode/leitcode/) |
 | `vcard` | vCard | `BEGIN:VCARD` | partial | [RFC 6350](https://www.rfc-editor.org/rfc/rfc6350) |
 | `mecard` | MECARD contact | `MECARD:` | partial | de-facto, see [ZXing: Barcode Contents](https://github.com/zxing/zxing/wiki/Barcode-Contents) |
 | `wifi` | Wi-Fi network | `WIFI:` | full | de-facto, see [ZXing: Barcode Contents](https://github.com/zxing/zxing/wiki/Barcode-Contents) |
@@ -118,6 +119,19 @@ parser is `raw`.
 - `Bestellung-V1` is decoded into its order items. Other process types keep their raw `process_data`.
 - The TSE signature is **not verified**. Verifying it needs the TSE log message structure from BSI TR-03151.
 
+**`dhl_return_label`**
+- DHL publishes no specification. The fields were inferred from one label by comparing them with the printed
+  addresses, so the record sits under `inferred` with a caveat.
+- Confirmed by their check digits (weights 4 and 9 alternating, modulo 10):
+  - the Identcode, the 12-digit parcel number, in fields 1 and 21;
+  - the Leitcode in field 20: recipient postcode (5), street code (3), house number (3), product code (2,
+    `33` = return), check digit. Its postcode is compared with the recipient's.
+- Sender (the customer) is fields 5–10, recipient (the merchant's returns address) fields 11–16, each as name,
+  second name line, street, postcode, city, country.
+- Field 22 is a `YYMMDD` date, probably the expiry: in the sample it was 31 days after the letter, and DHL
+  states the QR code is valid for up to 30 days. Fields 4, 23 and 24 are unknown and passed through.
+- **Privacy:** contains both names and addresses.
+
 **`deutsche_post_franking`**
 - `DEA` = DE (Germany) + A (Deutsche Post), as documented by Deutsche Post. The rest of the layout is not
   published; Deutsche Post's own DataMatrixCodeChecker reads it.
@@ -161,10 +175,17 @@ parser is `raw`.
 - Recognised for every form that has a barcode table in the handbook.
 - Official form names come from the `DN` attribute of the KBV
   [Ausfüllhilfe](https://update.kbv.de/ita-update/Blankoformulare/Ausfuellhilfe.zip) XML files.
-- Field names are decoded for **Muster 6 (Überweisungsschein), version 12**, the table in chapter 3.4.1 of
-  handbook version 4.80. That includes:
+- Field names are decoded for:
+  - **Muster 6 (Überweisungsschein), version 12**, the table in chapter 3.4.1 of handbook version 4.80;
+  - **Muster 1 (Arbeitsunfähigkeitsbescheinigung), versions 09 and 10**, the table in chapter 3.1.1 of
+    version 4.59 ([archived copy](https://web.archive.org/web/20210513073618/https://www.kbv.de/media/sp/02a_Blankoformularbedruckung_Handbuch.pdf)).
+    Version 4.60 raised every form's version for new DMP codes without changing this table. Version 4.61 (August
+    2021) dropped Muster 1 when the electronic AU certificate (eAU) arrived, but AU printouts with the barcode
+    still turn up.
+
+  Decoding includes:
   - dates converted to ISO format;
-  - coded values the handbook defines (sex, curative/preventive, type of examination);
+  - coded values the handbook defines (sex, curative/preventive, type of examination, Muster 1 check boxes);
   - ICD-10-GM codes with certainty (G/V/Z/A) and side (R/L/B) extracted.
 - Other forms and versions are reported with their raw fields and a warning. Adding one means copying its
   table from chapter 3 into `FIELD_TABLES` in `src/code_tools/codes/parsers/kbv.py`.

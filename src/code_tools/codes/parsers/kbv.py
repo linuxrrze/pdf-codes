@@ -18,14 +18,16 @@ import re
 
 TYPE = "kbv_form"
 
-# Form numbers with a barcode table in the handbook (chapter 3).
-FORMS_WITH_BARCODE = {2, 3, 4, 6, 8, 9, 10, 11, 12, 13, 15, 19, 20, 21, 25, 26, 27, 28, 36, 39, 50, 51, 52, 53,
+# Form numbers with a barcode table in the handbook (chapter 3). Muster 1 was dropped in version 4.61 (2021)
+# when the electronic AU certificate (eAU) replaced it, but printouts with its barcode still circulate.
+FORMS_WITH_BARCODE = {1, 2, 3, 4, 6, 8, 9, 10, 11, 12, 13, 15, 19, 20, 21, 25, 26, 27, 28, 36, 39, 50, 51, 52, 53,
                       55, 56, 61, 62, 63, 64, 65, 70}
 
 # Official form names: the "DN" attribute of the KBV Ausfüllhilfe XML files
 # (https://update.kbv.de/ita-update/Blankoformulare/Ausfuellhilfe.zip), plus names the handbook quotes.
 # Keyed by form number plus the upper-case variant letters of the Formularcodeergänzung.
 FORM_NAMES = {
+    "1": "Arbeitsunfähigkeitsbescheinigung",
     "4": "Verordnung einer Krankenbeförderung",
     "6": "Überweisungsschein",
     "8": "Sehhilfenverordnung",
@@ -55,8 +57,22 @@ FORM_NAMES = {
           "Väter gemäß §§ 24, 41 SGB V",
 }
 
-# Field tables from chapter 3, keyed by (form code, version). Muster 6/E, version 12: chapter 3.4.1.
+# Muster 1a/E, version 09: chapter 3.1.1 of handbook version 4.59 (9 Dec 2020, the last one with Muster 1),
+# archived at https://web.archive.org/web/20210513073618/https://www.kbv.de/media/sp/02a_Blankoformularbedruckung_Handbuch.pdf
+# Version 4.60 raised the version of every form to extend the DMP codes; the field list stayed the same.
+MUSTER_1 = (
+    "Formularcode", "Formularcodeergänzung", "Versionsnummer", "Versicherungsschutz Ende", "Kostenträgerkennung",
+    "Versicherten-ID", "Versichertenart", "Besondere Personengruppe", "DMP-Kennzeichnung",
+    "(Neben-)Betriebsstättennummer", "LANR", "Ausstellungsdatum", "Erstbescheinigung", "Folgebescheinigung",
+    "Arbeitsunfall", "Durchgangsarzt", "arbeitsunfähig seit", "voraussichtliche AU bis", "Festgestellt am",
+    "Sonstiger Unfall", "BVG", "Rehabilitation", "Wiedereingliederung", "Sonstige Maßnahmen", "Krankengeldfall",
+    "Endbescheinigung", "Diagnosen", "Hinweise zur Diagnose",
+)
+
+# Field tables from chapter 3, keyed by (form code, version). Muster 6/E, version 12: chapter 3.4.1 of 4.80.
 FIELD_TABLES: dict[tuple[str, str], tuple[str, ...]] = {
+    ("01", "09"): MUSTER_1,
+    ("01", "10"): MUSTER_1,
     ("06", "12"): (
         "Formularcode", "Formularcodeergänzung", "Versionsnummer", "Anforderungs-Ident", "Nachname", "Vorname",
         "Geburtsdatum", "Versicherungsschutz Ende", "Kostenträgerkennung", "Kostenträgername",
@@ -69,8 +85,13 @@ FIELD_TABLES: dict[tuple[str, str], tuple[str, ...]] = {
         "Diagnose/Verdachtsdiagnose", "Befund/Medikation", "Auftrag",
     ),
 }
-DATE_FIELDS = {"Geburtsdatum", "Versicherungsschutz Ende", "Ausstellungsdatum", "OP-Datum", "AU bis"}
+DATE_FIELDS = {"Geburtsdatum", "Versicherungsschutz Ende", "Ausstellungsdatum", "OP-Datum", "AU bis",
+               "arbeitsunfähig seit", "voraussichtliche AU bis", "Festgestellt am"}
+# Muster 1 check boxes: "1 = angekreuzt".
+CHECKBOX_FIELDS = ("Erstbescheinigung", "Folgebescheinigung", "Arbeitsunfall", "Durchgangsarzt", "Sonstiger Unfall",
+                   "BVG", "Rehabilitation", "Wiedereingliederung", "Krankengeldfall", "Endbescheinigung")
 CODED_FIELDS = {
+    **{name: {"1": "ja"} for name in CHECKBOX_FIELDS},
     "Geschlecht": {"M": "männlich", "W": "weiblich", "X": "unbestimmt", "D": "divers"},
     "Kurativ/Präventiv/bei belegärztl. Behandlung": {"1": "kurativ", "2": "präventiv",
                                                      "4": "bei belegärztlicher Behandlung"},

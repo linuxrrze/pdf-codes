@@ -74,3 +74,22 @@ def test_icd_parsing():
         {"code": "O12.2", "certainty": "Z", "side": None},
         {"code": "S51.9", "certainty": "G", "side": "L"}]
     assert kbv.parse_icd10("Kontrolle") == []
+
+
+def muster1(version: str = "10") -> bytes:
+    fields = ["01", "a", version, "", "109999999", "X123456789", "1", "00", "00", "123456700", "999999900",
+              "20260105", "", "1", "", "", "20260102", "20260109", "20260105", "", "", "", "", "", "1", "",
+              "J06.9 G, R50.9 V", ""]
+    return "\t".join(fields).encode("iso-8859-15")
+
+
+@pytest.mark.parametrize("version", ["09", "10"])
+def test_muster1_sick_note(version):
+    p = classify(muster1(version), "]L2")
+    assert p["type"] == "kbv_form" and p["valid"] and p["warnings"] == [], p["errors"]
+    assert (p["form"], p["name"], p["copy"]) == ("1", "Arbeitsunfähigkeitsbescheinigung", "a")
+    assert p["fields"]["Kostenträgerkennung"] == "109999999"
+    assert p["decoded"] == {
+        "Ausstellungsdatum": "2026-01-05", "Folgebescheinigung": "ja", "arbeitsunfähig seit": "2026-01-02",
+        "voraussichtliche AU bis": "2026-01-09", "Festgestellt am": "2026-01-05", "Krankengeldfall": "ja"}
+    assert [d["code"] for d in p["icd10"]] == ["J06.9", "R50.9"]
