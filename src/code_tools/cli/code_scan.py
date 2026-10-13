@@ -1,4 +1,4 @@
-"""pdf-codes: find and decode QR codes and barcodes anywhere in PDFs."""
+"""code-scan: find and decode QR codes and barcodes anywhere in PDFs and images."""
 
 from __future__ import annotations
 
@@ -8,26 +8,39 @@ import os
 import sys
 
 from ..codes.classify import classify
-from ..codes.scan import ScanOptions, parse_formats, scan_page
+from ..codes.scan import ScanOptions, parse_formats, scan_image, scan_page
 from ..core.attachments import safe_filename
+from ..core.imageio import DEFAULT_MAX_IMAGE_PIXELS, open_frames
 from ..core.output import EXIT_ERROR, EXIT_NOT_FOUND, EXIT_OK, Output, ToolError, add_output_args, run, warn
-from ..core.pdfio import add_limit_args, display_name, limits_from_args, open_pdfium, parse_page_ranges, read_input
+from ..core.pdfio import (
+    add_limit_args,
+    display_name,
+    is_pdf,
+    limits_from_args,
+    open_pdfium,
+    parse_page_ranges,
+    read_input,
+)
 
-PROG = "pdf-codes"
+PROG = "code-scan"
 
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog=PROG,
-        description="Find and decode every QR code and barcode in PDFs, wherever it sits on the page, and "
+        description="Find and decode every QR code and barcode in PDFs and images (PNG, JPEG, TIFF, WebP, ...), "
+                    "wherever it sits on the page, and "
                     "classify its content (EPC/GiroCode, Swiss QR-bill, GS1, vCard, WiFi, URL, ...). "
                     "Exit status: 0 if any code was found, 1 if none, 2 on error.",
     )
-    p.add_argument("files", nargs="+", metavar="PDF", help="input PDF, or - for stdin")
-    p.add_argument("--pages", metavar="RANGES", help="pages to scan, e.g. 1-3,7 (default: all)")
+    p.add_argument("files", nargs="+", metavar="FILE", help="input PDF or image, or - for stdin")
+    p.add_argument("--pages", metavar="RANGES",
+                   help="pages (or frames of a multi-page image) to scan, e.g. 1-3,7 (default: all)")
     p.add_argument("--symbology", metavar="LIST",
                    help="only these code types, e.g. qr,datamatrix,code128 (default: all)")
-    p.add_argument("--dpi", type=float, default=300, help="full-page render resolution (default: %(default)s)")
+    p.add_argument("--dpi", type=float, default=300,
+                   help="full-page render resolution for PDFs; for images without resolution metadata, the "
+                        "resolution to assume (default: %(default)s)")
     p.add_argument("--tile-dpi", type=float, default=600,
                    help="resolution of the tiled pass for small codes (default: %(default)s)")
     p.add_argument("--max-code-mm", type=float, default=60,
@@ -44,6 +57,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="with --raw: end each payload with NUL instead of newline (safe for multi-line "
                         "payloads such as EPC or vCard; a payload that itself contains NUL is reported on "
                         "stderr - use --save or the JSON bytes_b64 for those)")
+    p.add_argument("--max-image-pixels", type=int, default=DEFAULT_MAX_IMAGE_PIXELS, metavar="N",
+                   help="refuse images with more than N pixels (default: %(default)s)")
     add_output_args(p)
     add_limit_args(p)
     return p
@@ -55,7 +70,7 @@ def _text(rec: dict) -> str:
     if payload and not payload.get("valid", True):
         kind += "(invalid)"
     shown = rec["text"].replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r")
-    flag = " [outside cropbox]" if rec["outside_cropbox"] else ""
+    flag = " [outside cropbox]" if rec.get("outside_cropbox") else ""
     return f"{rec['file']}:{rec['page']}: {rec['symbology']} {kind}{flag}  {shown}"
 
 
@@ -92,46 +107,61 @@ def main(argv: list[str] | None = None) -> int:
         os.makedirs(args.save, exist_ok=True)
 
     found_any, had_error = False, False
+
+    def emit(name: str, kind: str, n: int, hit) -> None:
+        if args.raw and args.output_mode != "quiet":
+            sep = b"\0" if args.null else b"\n"
+            if sep in hit.data:
+                what = "NUL" if args.null else "newline (use -0)"
+                warn(PROG, f"{name}: page {hit.page}: payload contains a {what}; the output "
+                           "cannot be split unambiguously")
+            raw_out.write(hit.data + sep)
+            raw_out.flush()
+        record = {
+            "file": name,
+            "input": kind,
+            "page": hit.page,
+            "symbology": hit.symbology,
+            "symbology_identifier": hit.aim,
+            "content_type": hit.content_type,
+            ("bbox_pt" if kind == "pdf" else "bbox_px"): [round(v, 2) for v in hit.bbox],
+        }
+        if kind == "pdf":
+            record["outside_cropbox"] = hit.outside_cropbox
+        record.update({"source": hit.sources, "text": hit.text,
+                       "bytes_b64": base64.b64encode(hit.data).decode("ascii")})
+        if args.parse:
+            record["payload"] = classify(hit.data, hit.aim)
+        if args.save:
+            record["saved_to"] = _save(args.save, name, hit.page, n, hit.data)
+        out.emit(record, _text)
+
     for path in args.files:
         name = display_name(path)
         try:
-            doc = open_pdfium(read_input(path, limits), name, limits)
+            data = read_input(path, limits)
+            if is_pdf(data):
+                doc, frames = open_pdfium(data, name, limits), None
+            else:
+                doc, frames = None, open_frames(data, name, args.max_image_pixels)
         except ToolError as exc:
             warn(PROG, str(exc))
             had_error = True
             continue
-        try:
-            pages = parse_page_ranges(args.pages, len(doc))
-            for index in pages:
-                for n, hit in enumerate(scan_page(doc, index, opts), start=1):
+        del data
+        if doc is not None:
+            try:
+                for index in parse_page_ranges(args.pages, len(doc)):
+                    for n, hit in enumerate(scan_page(doc, index, opts), start=1):
+                        found_any = True
+                        emit(name, "pdf", n, hit)
+            finally:
+                doc.close()
+        else:
+            for index in parse_page_ranges(args.pages, len(frames)):
+                for n, hit in enumerate(scan_image(frames[index], index + 1, opts), start=1):
                     found_any = True
-                    if args.raw and args.output_mode != "quiet":
-                        sep = b"\0" if args.null else b"\n"
-                        if sep in hit.data:
-                            what = "NUL" if args.null else "newline (use -0)"
-                            warn(PROG, f"{name}: page {hit.page}: payload contains a {what}; the output "
-                                       "cannot be split unambiguously")
-                        raw_out.write(hit.data + sep)
-                        raw_out.flush()
-                    record = {
-                        "file": name,
-                        "page": hit.page,
-                        "symbology": hit.symbology,
-                        "symbology_identifier": hit.aim,
-                        "content_type": hit.content_type,
-                        "bbox_pt": [round(v, 2) for v in hit.bbox],
-                        "outside_cropbox": hit.outside_cropbox,
-                        "source": hit.sources,
-                        "text": hit.text,
-                        "bytes_b64": base64.b64encode(hit.data).decode("ascii"),
-                    }
-                    if args.parse:
-                        record["payload"] = classify(hit.data, hit.aim)
-                    if args.save:
-                        record["saved_to"] = _save(args.save, name, hit.page, n, hit.data)
-                    out.emit(record, _text)
-        finally:
-            doc.close()
+                    emit(name, "image", n, hit)
 
     if found_any:
         return EXIT_OK

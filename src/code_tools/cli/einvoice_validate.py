@@ -17,7 +17,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog=PROG,
         description="Validate XRechnung / EN 16931 invoices with the KoSIT validator (XML Schema, EN 16931 and "
                     "XRechnung Schematron). Inputs may be XML files or ZUGFeRD PDFs. Needs Java and "
-                    "pdfsieve-setup-java. Exit status: 0 if all inputs are valid, 1 if any is invalid, 2 on error.",
+                    "code-tools-setup-java. Exit status: 0 if all inputs are valid, 1 if any is invalid, 2 on error.",
     )
     p.add_argument("files", nargs="+", metavar="FILE", help="invoice XML or PDF, or - for stdin")
     p.add_argument("--report-dir", metavar="DIR", help="also keep the full KoSIT XML report in DIR/<n>/")

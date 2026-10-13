@@ -9,7 +9,7 @@ import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 
-from pdfsieve.core.output import ToolError
+from code_tools.core.output import ToolError
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 CORPUS = FIXTURES / "corpus"
@@ -23,11 +23,11 @@ def pytest_collection_modifyitems(config, items):
         if "corpus" in item.keywords and not have_corpus:
             item.add_marker(pytest.mark.skip(reason="run: uv run python tests/fetch_fixtures.py"))
         if "java" in item.keywords and not have_java:
-            item.add_marker(pytest.mark.skip(reason="needs Java 17+ and pdfsieve-setup-java"))
+            item.add_marker(pytest.mark.skip(reason="needs Java 17+ and code-tools-setup-java"))
 
 
 def _java_ready() -> bool:
-    from pdfsieve.einvoice.java import COMPONENTS, component_path, find_java
+    from code_tools.einvoice.java import COMPONENTS, component_path, find_java
 
     try:
         find_java()

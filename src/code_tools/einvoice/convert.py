@@ -11,7 +11,7 @@ from .java import component_path, run_jar
 
 def cii_to_ubl(cii: bytes) -> bytes:
     jar = component_path("cii2ubl")
-    with tempfile.TemporaryDirectory(prefix="pdfsieve-cii2ubl-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="code-tools-cii2ubl-") as tmp:
         src = pathlib.Path(tmp) / "invoice.xml"
         out_dir = pathlib.Path(tmp) / "out"
         out_dir.mkdir()

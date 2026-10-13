@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from conftest import CORPUS, TESTSUITE
 
-from pdfsieve.cli import einvoice_validate, xrechnung2zugferd, zugferd2xrechnung
-from pdfsieve.core.xmlsafe import parse_xml
+from code_tools.cli import einvoice_validate, xrechnung2zugferd, zugferd2xrechnung
+from code_tools.core.xmlsafe import parse_xml
 
 pytestmark = [pytest.mark.java, pytest.mark.corpus]
 

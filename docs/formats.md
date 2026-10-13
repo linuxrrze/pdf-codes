@@ -1,6 +1,6 @@
 # Recognised formats
 
-This page lists every format pdfsieve recognises, how far it decodes each one, and where its specification
+This page lists every format code-tools recognises, how far it decodes each one, and where its specification
 is published. Specifications are linked, not copied, because most are licensed by their publishers.
 
 How far a format is decoded:
@@ -12,10 +12,10 @@ How far a format is decoded:
 | **header** | Recognised by its documented header only. The content is encrypted or the layout is not public. |
 | **inferred** | Fields were worked out by comparing samples with what is printed next to the code. Not official. |
 
-## Barcode payloads (`pdf-codes`, `code-parse`)
+## Barcode payloads (`code-scan`, `code-parse`)
 
 The classifier tries the parsers below in order. The first one whose header matches decides the `type`
-(`src/pdfsieve/codes/classify.py`). A damaged code keeps its type and gets `"valid": false` plus `errors`.
+(`src/code_tools/codes/classify.py`). A damaged code keeps its type and gets `"valid": false` plus `errors`.
 Deviations that are common in practice and harmless go into `warnings` instead. Anything that matches no
 parser is `raw`.
 
@@ -159,7 +159,7 @@ parser is `raw`.
   - coded values the handbook defines (sex, curative/preventive, type of examination);
   - ICD-10-GM codes with certainty (G/V/Z/A) and side (R/L/B) extracted.
 - Other forms and versions are reported with their raw fields and a warning. Adding one means copying its
-  table from chapter 3 into `FIELD_TABLES` in `src/pdfsieve/codes/parsers/kbv.py`.
+  table from chapter 3 into `FIELD_TABLES` in `src/code_tools/codes/parsers/kbv.py`.
 - **Privacy:** the barcode is not encrypted and normally contains health data: diagnoses, insurer, date of
   birth, address.
 
@@ -174,7 +174,7 @@ modifier tells, for example, GS1 content (`]C1`, `]d2`, `]Q3`) apart from plain 
 
 ## E-invoices (`einvoice-info`, `zugferd2xrechnung`, `xrechnung2zugferd`, `einvoice-validate`)
 
-| Format | What pdfsieve does | Specification |
+| Format | What code-tools does | Specification |
 |---|---|---|
 | ZUGFeRD 1.0, 2.0, 2.1+ | detect (attachment, XMP, profile), extract | [FeRD: ZUGFeRD](https://www.ferd-net.de/standards/zugferd) |
 | Factur-X | same as ZUGFeRD 2.1+, which is technically identical | [FNFE-MPE: Factur-X](https://fnfe-mpe.org/factur-x/) |
@@ -194,10 +194,10 @@ validation and conversion use Java.
 
 ## Adding a format
 
-1. Write a parser, either as a module in `src/pdfsieve/codes/parsers/` or as a function in `generic.py`. Its
+1. Write a parser, either as a module in `src/code_tools/codes/parsers/` or as a function in `generic.py`. Its
    signature is `match(data: bytes, aim: str | None) -> dict | None`. Return `None` unless the header
    matches. Check the symbology via `aim` when the format prescribes one; `aim` is `None` when called from
    `code-parse`.
-2. Register it in `PARSERS` in `src/pdfsieve/codes/classify.py`.
+2. Register it in `PARSERS` in `src/code_tools/codes/classify.py`.
 3. Add tests with invented data only. Real codes often contain personal or health data.
 4. Add a row and notes to this page, with a specification link and the decoding level.

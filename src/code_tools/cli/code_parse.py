@@ -17,7 +17,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog=PROG,
         description="Classify barcode payloads (EPC/GiroCode, Swiss QR-bill, GS1, vCard, WiFi, URL, ...) and "
                     "parse them into JSON. Reads one payload per line, NUL-separated payloads with -0 "
-                    "(matches `pdf-codes --raw -0`), or the whole input as one payload with --whole. "
+                    "(matches `code-scan --raw -0`), or the whole input as one payload with --whole. "
                     "Exit status: 0 if any payload was recognised, 1 if all were raw, 2 on error.",
     )
     p.add_argument("files", nargs="*", metavar="FILE", help="input files (default: stdin)")

@@ -1,6 +1,6 @@
-# pdfsieve
+# code-tools
 
-Small Unix-style tools that pull facts out of PDFs: barcodes and QR codes, embedded files, and
+Small Unix-style tools that pull facts out of PDFs and images: barcodes and QR codes, embedded files, and
 ZUGFeRD / Factur-X / XRechnung e-invoices.
 
 Every tool does one job and follows the same rules:
@@ -11,14 +11,14 @@ Every tool does one job and follows the same rules:
 
 | Tool | Job |
 |---|---|
-| `pdf-codes` | Find and decode every QR code / barcode, anywhere on the page, and classify its payload |
+| `code-scan` | Find and decode every QR code / barcode in PDFs **and images** (PNG, JPEG, TIFF, WebP, ...), anywhere on the page, and classify its payload |
 | `code-parse` | Classify and parse barcode payloads from stdin (EPC, Swiss QR-bill, GS1, vCard, WiFi, URL, ...) |
 | `pdf-attachments` | List or extract embedded files |
 | `einvoice-info` | Detect ZUGFeRD / Factur-X / XRechnung: standard, profile, consistency warnings |
 | `zugferd2xrechnung` | Extract the invoice XML (CII as embedded, or converted to UBL) |
-| `xrechnung2zugferd` | Embed a CII XML into a PDF, producing a ZUGFeRD / Factur-X PDF/A-3 |
+| `xrechnung2zugferd` | Embed a CII XML into a PDF, or into an image of the invoice (scan, photo), producing a ZUGFeRD / Factur-X PDF/A-3 |
 | `einvoice-validate` | Validate XML or PDF e-invoices with the KoSIT validator (XRechnung rules) |
-| `pdfsieve-setup-java` | Download the Java components the last two need |
+| `code-tools-setup-java` | Download the Java components the last two need |
 
 ## Install
 
@@ -29,10 +29,10 @@ uv tool install .            # or: pipx install .   /   uv sync && uv run <tool>
 Python 3.11+. Everything except validation and UBL conversion is pure Python plus wheels (pdfium, zxing-cpp, qpdf).
 
 Optional extras:
-- **Java 17+**, then run `pdfsieve-setup-java`. It downloads pinned, SHA-256-verified copies of the KoSIT
+- **Java 17+**, then run `code-tools-setup-java`. It downloads pinned, SHA-256-verified copies of the KoSIT
   validator 1.6.3, the XRechnung 3.0.2 validator configuration and phax `en16931-cii2ubl` 4.0.1 into
-  `~/.cache/pdfsieve`. These are needed for `einvoice-validate` and `zugferd2xrechnung --syntax ubl`.
-  Override the locations with `PDFSIEVE_JAVA`, `PDFSIEVE_KOSIT_JAR`, `PDFSIEVE_XR_CONFIG` and `PDFSIEVE_CII2UBL_JAR`.
+  `~/.cache/code-tools`. These are needed for `einvoice-validate` and `zugferd2xrechnung --syntax ubl`.
+  Override the locations with `CODE_TOOLS_JAVA`, `CODE_TOOLS_KOSIT_JAR`, `CODE_TOOLS_XR_CONFIG` and `CODE_TOOLS_CII2UBL_JAR`.
   [docs/decisions/0001-optional-java-dependency.md](docs/decisions/0001-optional-java-dependency.md) explains
   why these two features use Java.
 - **Ghostscript**, for `xrechnung2zugferd --pdfa-convert`.
@@ -44,13 +44,16 @@ Optional extras:
 find inbox -name '*.pdf' -exec einvoice-info -q {} \; -print
 
 # IBAN and amount of every payment QR code (EPC / GiroCode)
-pdf-codes invoice.pdf | jq -r 'select(.payload.type=="epc") | "\(.payload.iban) \(.payload.amount)"'
+code-scan invoice.pdf | jq -r 'select(.payload.type=="epc") | "\(.payload.iban) \(.payload.amount)"'
 
 # Just the content of the QR codes, nothing else
-pdf-codes --raw --symbology qr doc.pdf
+code-scan --raw --symbology qr doc.pdf
+
+# Photos and scans work too; multi-page TIFFs are scanned page by page
+code-scan receipt.jpg scan.tif
 
 # Same, safe for multi-line payloads; parse later
-pdf-codes --raw -0 doc.pdf | code-parse -0
+code-scan --raw -0 doc.pdf | code-parse -0
 
 # Extract the XRechnung, then validate it
 zugferd2xrechnung rechnung.pdf | einvoice-validate -
@@ -60,12 +63,15 @@ zugferd2xrechnung --syntax ubl rechnung.pdf -o rechnung-ubl.xml
 
 # Turn a layout PDF plus an XRechnung (CII) into a ZUGFeRD PDF
 xrechnung2zugferd layout.pdf invoice_uncefact.xml -o zugferd.pdf
+
+# ... or a scanned invoice: each image page becomes a PDF/A page
+xrechnung2zugferd scan.tif invoice_uncefact.xml -o zugferd.pdf
 ```
 
 ## How barcodes are found
 
 Codes can be anywhere: in a corner or margin, rotated at any angle, inverted, tiny, drawn as vector paths,
-embedded as images, inside form XObjects or annotations, or outside the visible crop area. `pdf-codes` runs
+embedded as images, inside form XObjects or annotations, or outside the visible crop area. `code-scan` runs
 several passes and merges the results, so each code is reported once.
 
 1. **Full page** at `--dpi` (300), rendered over the whole MediaBox with annotations and form fields included.
@@ -77,8 +83,12 @@ Options:
 - `--fast` runs only the first pass. It misses codes smaller than about 3 mm.
 - `--thorough` adds a 1200 dpi tile pass and alternative binarisers for faded scans.
 
+For images, `--dpi` is the resolution assumed when the file doesn't state one. Tiles are upscaled to
+`--tile-dpi` relative to the image's resolution.
+
 Each record contains:
-- `bbox_pt`: the code's position in PDF user space, in points, with page rotation removed;
+- `bbox_pt` (PDFs): the code's position in PDF user space, in points, with page rotation removed;
+- `bbox_px` (images): the code's position in pixels, origin top left, after EXIF rotation;
 - `outside_cropbox`: whether the code lies outside the visible area;
 - `source`: which passes found it.
 
@@ -98,7 +108,7 @@ How classification works:
 **`--raw` output.** Payloads are written byte for byte.
 - One payload per line by default.
 - `-0` separates payloads with NUL instead, which is safe for multi-line payloads.
-- No separator can make payloads that contain NUL bytes unambiguous. `pdf-codes` warns on stderr when that
+- No separator can make payloads that contain NUL bytes unambiguous. `code-scan` warns on stderr when that
   happens; use `--save DIR` or the JSON `bytes_b64` field for those.
 
 ## How e-invoices are recognised
@@ -154,4 +164,4 @@ uv run python tests/fetch_fixtures.py   # ZUGFeRD corpus (pinned commit) + KoSIT
 uv run pytest                           # tests needing missing fixtures, Java or Ghostscript are skipped
 ```
 
-Test markers: `corpus` (downloaded fixtures), `java` (Java plus `pdfsieve-setup-java`), `slow`.
+Test markers: `corpus` (downloaded fixtures), `java` (Java plus `code-tools-setup-java`), `slow`.

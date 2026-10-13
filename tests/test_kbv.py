@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from pdfsieve.codes.classify import classify
-from pdfsieve.codes.parsers import kbv
+from code_tools.codes.classify import classify
+from code_tools.codes.parsers import kbv
 
 
 def muster6(**overrides) -> bytes:

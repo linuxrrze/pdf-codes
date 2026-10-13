@@ -1,6 +1,6 @@
 """Locate Java and the optional Java components (KoSIT validator, XRechnung configuration, CII→UBL converter).
 
-The components are downloaded by ``pdfsieve-setup-java`` into ``~/.cache/pdfsieve`` at pinned versions with
+The components are downloaded by ``code-tools-setup-java`` into ``~/.cache/code-tools`` at pinned versions with
 SHA-256 checksums. Each can be overridden with an environment variable pointing at an existing copy.
 """
 
@@ -34,7 +34,7 @@ COMPONENTS = {
         url="https://github.com/itplr-kosit/validator/releases/download/v1.6.3/validator-1.6.3-standalone.jar",
         sha256="799e64befca97d4080e03608c80b85dd5a5ecc5f4ae4f35d1116ec2855b9a7c9",
         target="validator-1.6.3-standalone.jar",
-        env="PDFSIEVE_KOSIT_JAR",
+        env="CODE_TOOLS_KOSIT_JAR",
     ),
     "xrechnung-config": Component(
         key="xrechnung-config",
@@ -43,7 +43,7 @@ COMPONENTS = {
             "xrechnung-3.0.2-validator-configuration-2026-08-31.zip",
         sha256="2530cd107c414511c5d0462ec10f886910395abfca820db82e83d70bf01221a8",
         target="xrechnung-3.0.2-validator-configuration-2026-08-31",
-        env="PDFSIEVE_XR_CONFIG",
+        env="CODE_TOOLS_XR_CONFIG",
         unzip=True,
     ),
     "cii2ubl": Component(
@@ -53,7 +53,7 @@ COMPONENTS = {
             "en16931-cii2ubl-cli-4.0.1-shaded.jar",
         sha256="1dee7e711cb861c10365467f1b4138ecb4bfc01c499d8a30235c28252ed795b3",
         target="en16931-cii2ubl-cli-4.0.1-shaded.jar",
-        env="PDFSIEVE_CII2UBL_JAR",
+        env="CODE_TOOLS_CII2UBL_JAR",
     ),
 }
 
@@ -62,11 +62,11 @@ MIN_JAVA = 17
 
 def cache_dir() -> pathlib.Path:
     base = os.environ.get("XDG_CACHE_HOME") or os.path.join(os.path.expanduser("~"), ".cache")
-    return pathlib.Path(base) / "pdfsieve"
+    return pathlib.Path(base) / "code-tools"
 
 
 def find_java() -> str:
-    candidates = [os.environ.get("PDFSIEVE_JAVA")]
+    candidates = [os.environ.get("CODE_TOOLS_JAVA")]
     if os.environ.get("JAVA_HOME"):
         candidates.append(os.path.join(os.environ["JAVA_HOME"], "bin", "java"))
     candidates.append(shutil.which("java"))
@@ -75,7 +75,7 @@ def find_java() -> str:
             _check_version(java)
             return java
     raise ToolError(f"Java {MIN_JAVA}+ is required but was not found "
-                    "(install it, or set JAVA_HOME or PDFSIEVE_JAVA)")
+                    "(install it, or set JAVA_HOME or CODE_TOOLS_JAVA)")
 
 
 def _check_version(java: str) -> None:
@@ -98,7 +98,7 @@ def component_path(key: str) -> pathlib.Path:
     override = os.environ.get(comp.env)
     path = pathlib.Path(override) if override else cache_dir() / comp.target
     if not path.exists():
-        hint = f"set {comp.env}" if override else "run pdfsieve-setup-java"
+        hint = f"set {comp.env}" if override else "run code-tools-setup-java"
         raise ToolError(f"{comp.description} not found at {path} ({hint})")
     return path
 

@@ -7,7 +7,7 @@ import hashlib
 
 import pytest
 
-from pdfsieve.codes.classify import classify
+from code_tools.codes.classify import classify
 
 
 def leg(pnr="ABC123", frm="FRA", to="MUC", carrier="LH", flight="0123", day="045", seat="012A", seq="0042",

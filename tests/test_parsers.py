@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from pdfsieve.cli import code_parse
-from pdfsieve.codes.classify import PARSERS, classify
-from pdfsieve.codes.parsers import epc, gs1, swiss_qr
-from pdfsieve.codes.parsers.common import iban_valid, rf_reference_valid
+from code_tools.cli import code_parse
+from code_tools.codes.classify import PARSERS, classify
+from code_tools.codes.parsers import epc, gs1, swiss_qr
+from code_tools.codes.parsers.common import iban_valid, rf_reference_valid
 
 EPC = ("BCD\n002\n1\nSCT\nBFSWDE33BER\nWikimedia Foerdergesellschaft\nDE33100205000001194700\nEUR123.4\n"
        "CHAR\n\nSpende fuer Wikipedia")

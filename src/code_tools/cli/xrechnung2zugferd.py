@@ -1,4 +1,5 @@
-"""xrechnung2zugferd: embed an XRechnung / Factur-X CII XML into a PDF, producing a ZUGFeRD PDF."""
+"""xrechnung2zugferd: embed an XRechnung / Factur-X CII XML into a PDF (or an image of the invoice),
+producing a ZUGFeRD PDF."""
 
 from __future__ import annotations
 
@@ -6,8 +7,9 @@ import argparse
 import os
 import sys
 
+from ..core.imageio import DEFAULT_DPI, images_to_pdf, open_frames
 from ..core.output import EXIT_OK, ToolError, run, warn
-from ..core.pdfio import add_limit_args, limits_from_args, read_input
+from ..core.pdfio import add_limit_args, is_pdf, limits_from_args, read_input
 from ..einvoice.embed import RELATIONSHIPS, embed
 
 PROG = "xrechnung2zugferd"
@@ -17,9 +19,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog=PROG,
         description="Embed a CII invoice XML (XRechnung, or any ZUGFeRD 2.x / Factur-X profile) into a PDF and "
-                    "write a PDF/A-3 with ZUGFeRD/Factur-X metadata. Exit status: 0 if written, 2 on error.",
+                    "write a PDF/A-3 with ZUGFeRD/Factur-X metadata. The visual invoice can also be an image "
+                    "(scan or photo; one page per frame of a multi-page TIFF). Exit status: 0 if written, 2 on "
+                    "error.",
     )
-    p.add_argument("pdf", metavar="PDF", help="the visual invoice, or - for stdin")
+    p.add_argument("pdf", metavar="PDF|IMAGE", help="the visual invoice (PDF or image), or - for stdin")
     p.add_argument("xml", metavar="XML", help="the CII invoice XML, or - for stdin")
     p.add_argument("-o", "--output", metavar="FILE", required=True, help="output PDF, or - for stdout")
     p.add_argument("--relationship", choices=RELATIONSHIPS, default="Alternative",
@@ -27,6 +31,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--attachment-name", default="factur-x.xml",
                    help="name of the embedded file (default: %(default)s, used by ZUGFeRD 2.2+ for every "
                         "profile; ZUGFeRD 2.1.1 used xrechnung.xml for the XRECHNUNG profile)")
+    p.add_argument("--image-dpi", type=float, default=DEFAULT_DPI, metavar="DPI",
+                   help="page size for images without resolution metadata (default: %(default)s)")
     p.add_argument("--pdfa-convert", action="store_true",
                    help="rewrite the PDF with Ghostscript first (embeds all fonts, RGB colours)")
     p.add_argument("--require-pdfa", action="store_true", help="fail if the input PDF is not already PDF/A")
@@ -58,9 +64,13 @@ def main(argv: list[str] | None = None) -> int:
     limits = limits_from_args(args)
     pdf = read_input(args.pdf, limits)
     xml = read_input(args.xml, limits)
+    image_only = not is_pdf(pdf)
+    if image_only:
+        pdf = images_to_pdf(open_frames(pdf, args.pdf), default_dpi=args.image_dpi)
 
     result = embed(pdf, xml, relationship=args.relationship, attachment_name=args.attachment_name,
-                   check_xsd=args.check_xsd, replace=args.replace, convert=args.pdfa_convert)
+                   check_xsd=args.check_xsd, replace=args.replace,
+                   convert=args.pdfa_convert and not image_only, image_only=image_only)
     not_pdfa = any(w.startswith("input is not PDF/A") for w in result.warnings)
     if args.require_pdfa and not_pdfa:
         raise ToolError("the input PDF is not PDF/A (--require-pdfa)")

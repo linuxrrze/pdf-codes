@@ -5,7 +5,7 @@
 
 ## Context
 
-pdfsieve is Python. Two features have no Python implementation of reference quality:
+code-tools is Python. Two features have no Python implementation of reference quality:
 
 1. **Validating e-invoices against the XRechnung rules** (`einvoice-validate`). The EN 16931 and XRechnung
    business rules (e.g. BR-DE-15, "Buyer reference must be present") are published as Schematron compiled to
@@ -37,14 +37,14 @@ A converter that silently drops or invents invoice data is worse than none, so t
 Use the Java tools for these two features only, and keep Java **optional**:
 
 - Barcodes, attachments, e-invoice detection, CII extraction and ZUGFeRD embedding do not need Java.
-- `pdfsieve-setup-java` downloads pinned versions with SHA-256 checksums into `~/.cache/pdfsieve`:
+- `code-tools-setup-java` downloads pinned versions with SHA-256 checksums into `~/.cache/code-tools`:
   - KoSIT validator 1.6.3;
   - XRechnung 3.0.2 validator configuration 2026-08-31;
   - en16931-cii2ubl 4.0.1.
 
-  Pins and checksums live in `src/pdfsieve/einvoice/java.py`.
-- Each location can be overridden: `PDFSIEVE_JAVA`, `PDFSIEVE_KOSIT_JAR`, `PDFSIEVE_XR_CONFIG`,
-  `PDFSIEVE_CII2UBL_JAR`.
+  Pins and checksums live in `src/code_tools/einvoice/java.py`.
+- Each location can be overridden: `CODE_TOOLS_JAVA`, `CODE_TOOLS_KOSIT_JAR`, `CODE_TOOLS_XR_CONFIG`,
+  `CODE_TOOLS_CII2UBL_JAR`.
 - Without Java, the two features fail with exit code 2 and a message that says what to install. The tests
   marked `java` are skipped.
 
@@ -53,7 +53,7 @@ Use the Java tools for these two features only, and keep Java **optional**:
 - Users who need validation or UBL output must install Java 17+.
 - The Java tools start a JVM for each call, about 3–5 s, which makes batch validation slow.
 - Gotcha: the converter exits with status 0 even when conversion fails. The wrapper in
-  `src/pdfsieve/einvoice/convert.py` treats the missing output file as the error and collects the `[ERROR]` lines.
+  `src/code_tools/einvoice/convert.py` treats the missing output file as the error and collects the `[ERROR]` lines.
 - New XRechnung releases need the configuration pin and checksum to be updated.
 
 ## Revisit when

@@ -1,7 +1,7 @@
 [project]
-name = "pdfsieve"
+name = "code-tools"
 version = "0.1.0"
-description = "Small Unix-style tools that extract facts from PDFs: barcodes, attachments, ZUGFeRD/Factur-X/XRechnung"
+description = "Small Unix-style tools that extract facts from PDFs and images: barcodes, attachments, ZUGFeRD/Factur-X/XRechnung"
 readme = "README.md"
 authors = [
     { name = "Marcel Ritter", email = "marcel@linux-ng.de" }
@@ -17,20 +17,20 @@ dependencies = [
 ]
 
 [project.scripts]
-pdf-codes = "pdfsieve.cli.pdf_codes:cli"
-code-parse = "pdfsieve.cli.code_parse:cli"
-pdf-attachments = "pdfsieve.cli.pdf_attachments:cli"
-einvoice-info = "pdfsieve.cli.einvoice_info:cli"
-zugferd2xrechnung = "pdfsieve.cli.zugferd2xrechnung:cli"
-xrechnung2zugferd = "pdfsieve.cli.xrechnung2zugferd:cli"
-einvoice-validate = "pdfsieve.cli.einvoice_validate:cli"
-pdfsieve-setup-java = "pdfsieve.cli.setup_java:cli"
+code-scan = "code_tools.cli.code_scan:cli"
+code-parse = "code_tools.cli.code_parse:cli"
+pdf-attachments = "code_tools.cli.pdf_attachments:cli"
+einvoice-info = "code_tools.cli.einvoice_info:cli"
+zugferd2xrechnung = "code_tools.cli.zugferd2xrechnung:cli"
+xrechnung2zugferd = "code_tools.cli.xrechnung2zugferd:cli"
+einvoice-validate = "code_tools.cli.einvoice_validate:cli"
+code-tools-setup-java = "code_tools.cli.setup_java:cli"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
     "corpus: needs the downloaded ZUGFeRD corpus (python tests/fetch_fixtures.py)",
-    "java: needs Java and the KoSIT validator (pdfsieve-setup-java)",
+    "java: needs Java and the KoSIT validator (code-tools-setup-java)",
     "slow: high-resolution barcode scans",
 ]
 

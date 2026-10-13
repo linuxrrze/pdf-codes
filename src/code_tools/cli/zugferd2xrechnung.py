@@ -24,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-o", "--output", metavar="FILE", default="-", help="output file, or - for stdout (default)")
     p.add_argument("--syntax", choices=("cii", "ubl"), default="cii",
                    help="cii: the embedded XML as is (default); ubl: convert to UBL 2.1 (needs Java, "
-                        "see pdfsieve-setup-java)")
+                        "see code-tools-setup-java)")
     p.add_argument("--strict", action="store_true",
                    help="refuse profiles that are not complete EN 16931 invoices (MINIMUM, BASIC WL, ZUGFeRD 1.0)")
     p.add_argument("--require-xrechnung", action="store_true", help="refuse anything but the XRECHNUNG profile")

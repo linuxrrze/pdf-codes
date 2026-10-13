@@ -21,7 +21,7 @@ def validate_xml(xml: bytes, keep_report: str | None = None) -> dict:
     """
     jar = component_path("kosit")
     config = component_path("xrechnung-config")
-    with tempfile.TemporaryDirectory(prefix="pdfsieve-kosit-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="code-tools-kosit-") as tmp:
         src = pathlib.Path(tmp) / "invoice.xml"
         src.write_bytes(xml)
         out_dir = pathlib.Path(tmp) / "out"

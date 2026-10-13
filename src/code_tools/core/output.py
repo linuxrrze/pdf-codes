@@ -75,7 +75,7 @@ def add_output_args(parser: argparse.ArgumentParser) -> None:
 
 def run(main: Callable[[list[str] | None], int], argv: list[str] | None = None) -> NoReturn:
     """Run a CLI main function with uniform error handling and exit codes."""
-    prog = os.path.basename(sys.argv[0]) if sys.argv and sys.argv[0] else "pdfsieve"
+    prog = os.path.basename(sys.argv[0]) if sys.argv and sys.argv[0] else "code-tools"
     try:
         code = main(argv)
     except ToolError as exc:

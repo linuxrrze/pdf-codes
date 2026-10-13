@@ -1,4 +1,4 @@
-"""pdfsieve-setup-java: download the pinned Java components into the cache, verifying checksums."""
+"""code-tools-setup-java: download the pinned Java components into the cache, verifying checksums."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import zipfile
 from ..core.output import EXIT_OK, ToolError, run
 from ..einvoice.java import COMPONENTS, Component, cache_dir, find_java
 
-PROG = "pdfsieve-setup-java"
+PROG = "code-tools-setup-java"
 
 
 def build_parser() -> argparse.ArgumentParser:

@@ -8,8 +8,8 @@ import pytest
 import zxingcpp
 from pdfgen import A3, A4, MM, PdfBuilder, matrix_image, qr_matrix, zxing_image
 
-from pdfsieve.cli import pdf_codes
-from pdfsieve.codes.scan import ScanOptions, scan_page
+from code_tools.cli import code_scan
+from code_tools.codes.scan import ScanOptions, scan_page
 
 TINY_MM = 2.5  # readable only by the tiled pass (verified: missed at 300 dpi)
 EPC = b"BCD\n002\n1\nSCT\n\nWikimedia Foerdergesellschaft\nDE33100205000001194700\nEUR5\n\n\nSpende"
@@ -137,7 +137,7 @@ def test_symbologies(default_hits):
 
 
 def test_cli_json_and_payloads(invoke, placement_pdf):
-    r = invoke(pdf_codes.main, "--pages", "3", placement_pdf[0])
+    r = invoke(code_scan.main, "--pages", "3", placement_pdf[0])
     assert r.code == 0
     recs = r.records
     epc = next(rec for rec in recs if rec["payload"]["type"] == "epc")
@@ -149,32 +149,32 @@ def test_cli_json_and_payloads(invoke, placement_pdf):
 
 
 def test_cli_raw_is_exact(invoke, placement_pdf):
-    r = invoke(pdf_codes.main, "--raw", "-0", "--pages", "3", placement_pdf[0])
+    r = invoke(code_scan.main, "--raw", "-0", "--pages", "3", placement_pdf[0])
     assert r.code == 0
     # Exact bytes, each followed by NUL; the binary payload contains NULs itself, which is reported.
     assert sorted(r.stdout.replace(BINARY + b"\0", b"").split(b"\0")[:-1]) == sorted([b"twice", b"twice", EPC])
     assert BINARY + b"\0" in r.stdout
     assert "contains a NUL" in r.stderr
-    r = invoke(pdf_codes.main, "--raw", "--pages", "3", "--symbology", "qr", placement_pdf[0])
+    r = invoke(code_scan.main, "--raw", "--pages", "3", "--symbology", "qr", placement_pdf[0])
     assert "contains a newline" in r.stderr  # the multi-line EPC payload without -0
-    r = invoke(pdf_codes.main, "--raw", "--symbology", "datamatrix", "--pages", "1", placement_pdf[0])
+    r = invoke(code_scan.main, "--raw", "--symbology", "datamatrix", "--pages", "1", placement_pdf[0])
     assert r.stdout == b"DMTX-1\n"
 
 
 def test_cli_symbology_filter_and_exit_codes(invoke, placement_pdf, tmp_path):
-    r = invoke(pdf_codes.main, "-q", "--fast", "--pages", "2", placement_pdf[0])
+    r = invoke(code_scan.main, "-q", "--fast", "--pages", "2", placement_pdf[0])
     assert r.code == 1 and r.stdout == b""  # tiny codes only, invisible to --fast
-    r = invoke(pdf_codes.main, "--symbology", "code128", "--pages", "1", placement_pdf[0])
+    r = invoke(code_scan.main, "--symbology", "code128", "--pages", "1", placement_pdf[0])
     assert [rec["text"] for rec in r.records] == ["CODE128-XYZ"]
-    assert invoke(pdf_codes.main, "--symbology", "nonsense", placement_pdf[0]).code == 2
-    assert invoke(pdf_codes.main, tmp_path / "missing.pdf").code == 2
+    assert invoke(code_scan.main, "--symbology", "nonsense", placement_pdf[0]).code == 2
+    assert invoke(code_scan.main, tmp_path / "missing.pdf").code == 2
     notpdf = tmp_path / "x.pdf"
     notpdf.write_text("hello")
-    assert invoke(pdf_codes.main, notpdf).code == 2
+    assert invoke(code_scan.main, notpdf).code == 2
 
 
 def test_cli_save(invoke, placement_pdf, tmp_path):
-    r = invoke(pdf_codes.main, "--pages", "3", "--save", tmp_path / "out", placement_pdf[0])
+    r = invoke(code_scan.main, "--pages", "3", "--save", tmp_path / "out", placement_pdf[0])
     saved = {rec["saved_to"] for rec in r.records}
     assert len(saved) == 4
     contents = sorted(pathlib.Path(p).read_bytes() for p in saved)
@@ -183,5 +183,5 @@ def test_cli_save(invoke, placement_pdf, tmp_path):
 
 
 def test_cli_stdin(invoke, placement_pdf):
-    r = invoke(pdf_codes.main, "--fast", "--pages", "5", "-", stdin=placement_pdf[0].read_bytes())
+    r = invoke(code_scan.main, "--fast", "--pages", "5", "-", stdin=placement_pdf[0].read_bytes())
     assert [(rec["file"], rec["text"]) for rec in r.records] == [("<stdin>", "rotated-page")]

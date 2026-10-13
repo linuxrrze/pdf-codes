@@ -1,4 +1,4 @@
-"""Find and decode barcodes anywhere on PDF pages.
+"""Find and decode barcodes anywhere on PDF pages or in raster images.
 
 Passes (see ``ScanOptions``):
 1. full page rendered at ``dpi`` (annotations and form fields included);
@@ -9,6 +9,10 @@ Passes (see ``ScanOptions``):
 
 Pages are rendered over the full MediaBox with page rotation removed, so pixel coordinates map linearly to PDF
 user space. Hits from all passes are merged when they have the same symbology and bytes and overlapping boxes.
+
+Raster images (``scan_image``) get the same treatment in pixel space: a pass at native resolution, then
+overlapping tiles upscaled to ``tile_dpi`` (relative to the image's own resolution, or ``dpi`` when the file
+does not state one). Their boxes are in pixels, origin top left.
 """
 
 from __future__ import annotations
@@ -22,8 +26,11 @@ import pypdfium2.raw as pdfium_c
 import zxingcpp
 from PIL import Image
 
+from ..core.imageio import Frame
+
 MM = 72 / 25.4
-SOURCE_PRIORITY = {"image": 0, "tile-1200": 1, "tile": 2, "render": 3}  # lower = more precise position
+SOURCE_PRIORITY = {"image": 0, "tile-1200": 1, "tile": 2, "render": 3}
+MAX_UPSCALE = 4  # lower = more precise position
 
 
 @dataclass
@@ -46,7 +53,7 @@ class Hit:
     content_type: str
     text: str
     data: bytes
-    bbox: tuple[float, float, float, float]  # PDF user space: x0, y0, x1, y1
+    bbox: tuple[float, float, float, float]  # PDF user space (x0, y0, x1, y1), or pixels for images
     sources: list[str] = field(default_factory=list)
     outside_cropbox: bool = False
 
@@ -242,3 +249,34 @@ def scan_page(doc: pdfium.PdfDocument, index: int, opts: ScanOptions) -> list[Hi
         page.set_cropbox(*cropbox)
         page.set_rotation(rotation)
         page.close()
+
+
+def scan_image(frame: Frame, frame_no: int, opts: ScanOptions) -> list[Hit]:
+    """Scan one raster image (or one frame of a multi-page image). Boxes are in pixels, origin top left."""
+    img = frame.image
+    dpi = frame.dpi or opts.dpi
+    identity = _Affine(1, 0, 0, 1, 0, 0)
+    hits = [_to_hit(c, identity, frame_no, "image") for c in _decode(img, opts)]
+    if opts.thorough:
+        for binarizer in (zxingcpp.Binarizer.GlobalHistogram, zxingcpp.Binarizer.FixedThreshold):
+            hits += [_to_hit(c, identity, frame_no, "image") for c in _decode(img, opts, binarizer)]
+
+    if opts.tiles:
+        passes = [("tile", opts.tile_dpi)] + ([("tile-1200", 1200)] if opts.thorough else [])
+        overlap = opts.max_code_mm / 25.4 * dpi  # in source pixels
+        for source, target_dpi in passes:
+            factor = min(target_dpi / dpi, MAX_UPSCALE)
+            if factor <= 1.05:
+                continue  # the image is already at least that sharp; the native pass covered it
+            tile = min(3 * overlap, math.sqrt(opts.max_pixels) / factor)
+            tile = max(tile, overlap * 1.25)
+            for x0, y0, x1, y1 in _tiles((0, 0, img.size[0], img.size[1]), tile, overlap):
+                box = (int(x0), int(y0), math.ceil(x1), math.ceil(y1))
+                part = img.crop(box)
+                part = part.resize((round(part.size[0] * factor), round(part.size[1] * factor)), Image.BICUBIC)
+                affine = _Affine(1 / factor, 0, 0, 1 / factor, box[0], box[1])
+                hits += [_to_hit(c, affine, frame_no, source) for c in _decode(part, opts)]
+
+    merged = merge_hits(hits)
+    merged.sort(key=lambda h: (h.bbox[1], h.bbox[0]))
+    return merged

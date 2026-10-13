@@ -8,9 +8,9 @@ import pytest
 from conftest import CORPUS, TESTSUITE
 from pdfgen import PdfBuilder, matrix_image, qr_matrix
 
-from pdfsieve.cli import einvoice_info, pdf_attachments, xrechnung2zugferd, zugferd2xrechnung
-from pdfsieve.core.attachments import safe_filename
-from pdfsieve.einvoice.profiles import profile_from_urn
+from code_tools.cli import einvoice_info, pdf_attachments, xrechnung2zugferd, zugferd2xrechnung
+from code_tools.core.attachments import safe_filename
+from code_tools.einvoice.profiles import profile_from_urn
 
 XR_CII = TESTSUITE / "standard" / "01.01a-INVOICE_uncefact.xml"
 XR_UBL = TESTSUITE / "standard" / "01.01a-INVOICE_ubl.xml"

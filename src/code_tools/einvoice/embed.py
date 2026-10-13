@@ -245,7 +245,7 @@ def pdfa_convert(pdf: bytes) -> bytes:
     gs = shutil.which("gs")
     if not gs:
         raise ToolError("--pdfa-convert needs Ghostscript (gs), which was not found")
-    with tempfile.TemporaryDirectory(prefix="pdfsieve-gs-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="code-tools-gs-") as tmp:
         src, dst = f"{tmp}/in.pdf", f"{tmp}/out.pdf"
         with open(src, "wb") as fh:
             fh.write(pdf)
@@ -262,7 +262,7 @@ def pdfa_convert(pdf: bytes) -> bytes:
 
 
 def embed(pdf_data: bytes, xml: bytes, *, relationship: str = "Alternative", attachment_name: str = "factur-x.xml",
-          check_xsd: bool = True, replace: bool = False, convert: bool = False,
+          check_xsd: bool = True, replace: bool = False, convert: bool = False, image_only: bool = False,
           now: dt.datetime | None = None) -> EmbedResult:
     if relationship not in RELATIONSHIPS:
         raise ToolError(f"AFRelationship must be one of {', '.join(RELATIONSHIPS)}")
@@ -285,7 +285,9 @@ def embed(pdf_data: bytes, xml: bytes, *, relationship: str = "Alternative", att
         letter = existing["pdfa"].get("conformance", "B").upper()
         if letter not in ("A", "B", "U"):
             letter = "B"
-        if part is None and not convert:
+        # A PDF made from images has no fonts and only DeviceGray/DeviceRGB images, so its content is fine for
+        # PDF/A once the output intent and metadata below are added.
+        if part is None and not convert and not image_only:
             warnings.append("input is not PDF/A: the output carries PDF/A-3 metadata, but fonts and colours "
                             "are unchanged and may not comply (use --pdfa-convert, or create PDF/A-3 upstream)")
 

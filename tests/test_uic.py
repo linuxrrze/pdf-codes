@@ -6,7 +6,7 @@ import zlib
 
 import pytest
 
-from pdfsieve.codes.classify import classify
+from code_tools.codes.classify import classify
 
 
 def record(rid: str, version: str, body: bytes) -> bytes:
