@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from .parsers import epc, generic, gs1, kbv, swiss_qr, uic
+from .parsers import bcbp, epc, generic, gs1, kassensichv, kbv, swiss_qr, uic
 
 Parser = Callable[[bytes, str | None], dict | None]
 
@@ -23,6 +23,8 @@ PARSERS: list[tuple[str, Parser]] = [
     ("deutsche_post_franking", generic.deutsche_post_franking),
     ("pkv_invoice_code", generic.pkv_invoice_code),
     ("kbv_form", kbv.match),
+    ("iata_bcbp", bcbp.match),
+    ("kassensichv_receipt", kassensichv.match),
     ("vcard", generic.vcard),
     ("mecard", generic.mecard),
     ("wifi", generic.wifi),

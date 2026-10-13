@@ -82,7 +82,8 @@ Each record contains:
 - `outside_cropbox`: whether the code lies outside the visible area;
 - `source`: which passes found it.
 
-Payload types include `epc`, `swiss_qr`, `gs1`, `kbv_form`, `pkv_invoice_code`, `deutsche_post_franking`,
+Payload types include `epc`, `swiss_qr`, `gs1`, `iata_bcbp`, `kassensichv_receipt`, `uic_ticket`, `kbv_form`,
+`pkv_invoice_code`, `deutsche_post_franking`,
 `vcard`, `wifi`, `url` and more. [docs/formats.md](docs/formats.md) lists every recognised format with how far
 it is decoded and a link to its specification.
 

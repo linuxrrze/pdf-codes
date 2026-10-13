@@ -30,6 +30,8 @@ parser is `raw`.
 | `deutsche_post_franking` | Deutsche Post franking mark ("Matrixcode") | `DEA` + binary data, DataMatrix | header; inferred for the 42-byte variant | [Deutsche Post: Matrixcode](https://www.deutschepost.de/de/f/frankierung/matrixcode.html), layout not public |
 | `pkv_invoice_code` | eA/eP codes on private medical invoices (PKV, Beihilfe) | `eA`/`eP` + digit + base64-like text, DataMatrix | header (encrypted) | [lemniscus helpdesk](https://helpdesk.lemniscus.de/docs/rechnung-mit-ea-ep-codes), technical spec not public |
 | `kbv_form` | KBV Blankoformular barcode on statutory medical forms ("Muster") | form number, page letters, version, TAB-separated, PDF417 | partial | [KBV Technisches Handbuch Blankoformularbedruckung](https://update.kbv.de/ita-update/Blankoformulare/KBV_ITA_VGEX_Technisches_Handbuch_BFB.pdf) |
+| `iata_bcbp` | IATA Bar Coded Boarding Pass (boarding passes, e-ticket itinerary receipts) | `M` + number of legs, fixed-width fields, hex size fields | full (mandatory and conditional items) | IATA Resolution 792 (not freely available); [BCBP Implementation Guide](https://www.iata.org/contentassets/1dccc9ed041b4f3bbdcf8ee8682e75c4/2021_03_02-bcbp-implementation-guide-version-7-.pdf); field lengths from [bcbp](https://github.com/georgesmith46/bcbp) (MIT) |
+| `kassensichv_receipt` | German cash-register receipt QR code (KassenSichV, TSE) | `V0;` + 12 fields separated by `;` | full; signature not verified | DSFinV-K 2.4, Anhang I, [Bundeszentralamt für Steuern](https://www.bzst.de/DE/Unternehmen/Aussenpruefungen/DigitaleSchnittstelleFinV/digitaleschnittstellefinv_node.html) |
 | `vcard` | vCard | `BEGIN:VCARD` | partial | [RFC 6350](https://www.rfc-editor.org/rfc/rfc6350) |
 | `mecard` | MECARD contact | `MECARD:` | partial | de-facto, see [ZXing: Barcode Contents](https://github.com/zxing/zxing/wiki/Barcode-Contents) |
 | `wifi` | Wi-Fi network | `WIFI:` | full | de-facto, see [ZXing: Barcode Contents](https://github.com/zxing/zxing/wiki/Barcode-Contents) |
@@ -84,6 +86,37 @@ parser is `raw`.
 - The signature is **not verified**, so `signature_verified` is `null`. Verifying it needs the issuers' public keys
   from [railpublickey.uic.org](https://railpublickey.uic.org/).
 - **Privacy:** tickets normally contain the traveller's name.
+
+**`iata_bcbp`**
+- Format "M" with any number of legs.
+- Mandatory items per leg:
+  - booking reference (PNR), from and to airports, carrier, flight number;
+  - date of flight as day of year (the year is not encoded);
+  - compartment, seat, check-in sequence number, passenger status.
+- Conditional items, read via their hex size fields:
+  - once per pass: version, passenger description, check-in and issuance source, date of issue (last digit of
+    the year + day of year), document type, issuer, baggage tags;
+  - per leg: ticket number (airline code + serial), selectee, marketing carrier, frequent-flyer airline and
+    number, ID/AD, free baggage allowance, fast track;
+  - per leg, the rest is kept as `airline_use`.
+- Optional security data (`^`): its type and length are reported. The signature is not verified.
+- `document_kind`: `B` = boarding pass, `I` = itinerary receipt. Itinerary receipts may leave the flight
+  fields blank. Other codes (Resolution 792, Attachment C) are reported as-is, without a name.
+- **Privacy:** passenger name, booking reference, frequent-flyer number.
+
+**`kassensichv_receipt`**
+- Twelve fields, split from both ends, because `processData` of `Bestellung-V1` may itself contain `;`:
+  - QR version `V0`, till serial (client ID), process type, process data;
+  - TSE transaction number, signature counter, start and finish times;
+  - signature algorithm, time format, signature, public key.
+- `tse_serial` is the SHA-256 of the public key, as Anhang I specifies.
+- `Kassenbeleg-V1` is decoded into:
+  - transaction type (e.g. `Beleg`);
+  - gross sales per VAT rate: standard, reduced, the two §24 UStG average rates, 0 %;
+  - payments: `Bar`/`Unbar`, with the currency when it isn't EUR.
+- Gross sales and payments are compared when everything is paid in EUR. A mismatch is a warning.
+- `Bestellung-V1` is decoded into its order items. Other process types keep their raw `process_data`.
+- The TSE signature is **not verified**. Verifying it needs the TSE log message structure from BSI TR-03151.
 
 **`deutsche_post_franking`**
 - `DEA` = DE (Germany) + A (Deutsche Post), as documented by Deutsche Post. The rest of the layout is not
