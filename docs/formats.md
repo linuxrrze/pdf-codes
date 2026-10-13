@@ -121,18 +121,26 @@ parser is `raw`.
 **`deutsche_post_franking`**
 - `DEA` = DE (Germany) + A (Deutsche Post), as documented by Deutsche Post. The rest of the layout is not
   published; Deutsche Post's own DataMatrixCodeChecker reads it.
-- For the 42-byte variant, these fields were inferred from three letters by two senders, and appear under
-  `inferred`:
+- For the 42-byte layout, these fields were inferred and appear under `inferred`. The source was 13 letters
+  from 2011 to 2026 by several senders, compared with the text printed next to the code:
 
   | Bytes | Field |
   |---|---|
+  | 4 | rises over time (`19` in 2011 … `3b` in 2026), presumably a format or key version (`version_byte`) |
   | 10–11 | postage in cents |
   | 12–13 | mailing date as DDDYY (day of year × 100 + year) |
   | 17–18 | the middle number of the printed line `*…*NNNN*…*` |
   | 19–21 | the start of the printed hex line |
+  | 22–41 | varies by sender: zeros; or a run of ASCII digits (`sender_reference`); or spaces, then `A c4 02` and four further bytes |
 
-- The last four bytes match no standard CRC-16/CRC-32, sum or truncated hash, and no CRC-16 polynomial at all.
-  Presumably they are the cryptographic signature.
+- The postage matched Deutsche Post's official rate at the decoded mailing date on every letter:
+  - 0.55 € in 2011;
+  - 0.70 € from 2016 until June 2019;
+  - 0.80 € from July 2019;
+  - 0.85 € for the Kompaktbrief (2016–2019), and for the Standardbrief from 2022;
+  - 0.95 € in 2026.
+- In the `A c4 02` layout, the last four bytes match no standard CRC-16/CRC-32, sum or truncated hash, and no
+  CRC-16 polynomial at all. Presumably they are the cryptographic signature.
 
 **`pkv_invoice_code`**
 - An industry scheme of private health insurers and Beihilfe offices.

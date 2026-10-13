@@ -179,6 +179,18 @@ def test_franking_date(dddyy, date):
     assert classify(franking(110, dddyy, 1), "]d1")["inferred"]["date"] == date
 
 
+def test_franking_version_byte_and_sender_reference():
+    # Layout seen on letters from 2017-2019: no signature block, a sender reference in ASCII digits instead.
+    data = franking(70, 34418, 5392)
+    data = data[:4] + b"\x26" + data[5:22] + b"\x00" + b"12345670000005392" + b"\x00\x00"
+    assert len(data) == 42
+    inferred = classify(data, "]d1")["inferred"]
+    assert (inferred["postage"], inferred["date"]) == ("0.70", "2018-12-10")
+    assert inferred["version_byte"] == "26"
+    assert inferred["sender_reference"] == "12345670000005392"
+    assert "sender_reference" not in classify(franking(95, 28226, 1), "]d1")["inferred"]
+
+
 def test_franking_other_length_has_no_inferred_fields():
     p = classify(franking(95, 28226, 1) + b"\x00", "]d1")
     assert p["type"] == "deutsche_post_franking" and "inferred" not in p

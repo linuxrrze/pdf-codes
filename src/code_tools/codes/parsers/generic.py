@@ -170,13 +170,16 @@ def deutsche_post_franking(data: bytes, aim=None) -> dict | None:
     """Deutsche Post postage DataMatrix ("Matrixcode", e.g. Internetmarke, FRANKIT, DMC stamps).
 
     "DEA" = DE (Germany) + A (Deutsche Post), as documented by Deutsche Post. The rest of the layout is not
-    published. For the 42-byte variant, some fields were inferred by comparing samples with the text printed
-    next to the code; they are reported under "inferred" and are not an official decoding:
-      bytes 10-11  postage in cents (big-endian)
+    published. For the 42-byte layout, these fields were inferred by comparing 13 letters (2011-2026, several
+    senders) with the text printed next to the code and with Deutsche Post's historical postage rates; they are
+    reported under "inferred" and are not an official decoding:
+      byte 4       rises over time (0x19 in 2011 ... 0x3b in 2026), presumably a format or key version
+      bytes 10-11  postage in cents (big-endian); matched the official rate of the mailing date every time
       bytes 12-13  mailing date as DDDYY: day of year * 100 + two-digit year (big-endian)
       bytes 17-18  the middle number of the printed line "*...*NNNN*...*"
       bytes 19-21  the start of the printed hex line ("E9 ... 65 9..."); bytes 20-21 look like a counter
-    The trailing bytes vary without matching anything printed: presumably the hash/signature.
+      bytes 22-41  varies by sender: zeros, a run of ASCII digits (a sender reference), or spaces followed by
+                   "A" C4 02 and four bytes that match no checksum (presumably a signature)
     """
     if not data.startswith(b"DEA") or (aim is not None and not aim.startswith("]d")):
         return None
@@ -188,14 +191,20 @@ def deutsche_post_franking(data: bytes, aim=None) -> dict | None:
               "note": "Deutsche Post franking mark (DE + carrier A); the field layout is not public"}
     if len(data) == 42:
         cents = int.from_bytes(data[10:12], "big")
-        result["inferred"] = {
+        inferred = {
             "postage": f"{cents // 100}.{cents % 100:02d}",
             "currency": "EUR",
             "date": _day_of_year_date(int.from_bytes(data[12:14], "big")),
             "printed_number": int.from_bytes(data[17:19], "big"),
             "printed_id_start": data[19:22].hex().upper(),
-            "caveat": "inferred from three samples by comparison with the printed text; not an official decoding",
+            "version_byte": f"{data[4]:02X}",
         }
+        digits = re.findall(rb"\d{8,}", data[22:])
+        if digits:
+            inferred["sender_reference"] = digits[0].decode()
+        inferred["caveat"] = ("inferred from 13 letters (2011-2026) by comparison with the printed text and "
+                              "the official postage rates; not an official decoding")
+        result["inferred"] = inferred
     return result
 
 
