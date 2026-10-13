@@ -1,0 +1,46 @@
+[project]
+name = "pdfsieve"
+version = "0.1.0"
+description = "Small Unix-style tools that extract facts from PDFs: barcodes, attachments, ZUGFeRD/Factur-X/XRechnung"
+readme = "README.md"
+authors = [
+    { name = "Marcel Ritter", email = "marcel@linux-ng.de" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "factur-x>=7.6",
+    "lxml>=6.1.3",
+    "pikepdf>=10.17.0",
+    "pillow>=12.3.0",
+    "pypdfium2>=5.14.0",
+    "zxing-cpp>=3.1.1",
+]
+
+[project.scripts]
+pdf-codes = "pdfsieve.cli.pdf_codes:cli"
+code-parse = "pdfsieve.cli.code_parse:cli"
+pdf-attachments = "pdfsieve.cli.pdf_attachments:cli"
+einvoice-info = "pdfsieve.cli.einvoice_info:cli"
+zugferd2xrechnung = "pdfsieve.cli.zugferd2xrechnung:cli"
+xrechnung2zugferd = "pdfsieve.cli.xrechnung2zugferd:cli"
+einvoice-validate = "pdfsieve.cli.einvoice_validate:cli"
+pdfsieve-setup-java = "pdfsieve.cli.setup_java:cli"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "corpus: needs the downloaded ZUGFeRD corpus (python tests/fetch_fixtures.py)",
+    "java: needs Java and the KoSIT validator (pdfsieve-setup-java)",
+    "slow: high-resolution barcode scans",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.15,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "python-barcode>=0.16.1",
+    "segno>=1.6.6",
+]

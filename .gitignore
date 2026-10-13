@@ -1,0 +1,14 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# downloaded by tests/fetch_fixtures.py
+tests/fixtures/corpus/
+tests/fixtures/xrechnung-testsuite/
