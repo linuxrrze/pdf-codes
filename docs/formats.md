@@ -33,6 +33,7 @@ parser is `raw`.
 | `iata_bcbp` | IATA Bar Coded Boarding Pass (boarding passes, e-ticket itinerary receipts) | `M` + number of legs, fixed-width fields, hex size fields | full (mandatory and conditional items) | IATA Resolution 792 (not freely available); [BCBP Implementation Guide](https://www.iata.org/contentassets/1dccc9ed041b4f3bbdcf8ee8682e75c4/2021_03_02-bcbp-implementation-guide-version-7-.pdf); field lengths from [bcbp](https://github.com/georgesmith46/bcbp) (MIT) |
 | `kassensichv_receipt` | German cash-register receipt QR code (KassenSichV, TSE) | `V0;` + 12 fields separated by `;` | full; signature not verified | DSFinV-K 2.4, Anhang I, [Bundeszentralamt für Steuern](https://www.bzst.de/DE/Unternehmen/Aussenpruefungen/DigitaleSchnittstelleFinV/digitaleschnittstellefinv_node.html) |
 | `dhl_return_label` | DHL return label QR code (sent by merchants for printer-free returns) | `RON\|` + 25 fields separated by `\|` | inferred; Identcode and Leitcode checked | not published; check digits: [paketda](https://www.paketda.de/firmenkunden/paket-pruefziffern.html), Leitcode layout: [ActiveBarcode](https://www.activebarcode.com/barcode/leitcode/) |
+| `beihilfe_form` | QR code on Beihilfe applications and notices | `H001;` or `X_H001;` + form version `V MM.YYYY`, QR code | inferred | not published |
 | `vcard` | vCard | `BEGIN:VCARD` | partial | [RFC 6350](https://www.rfc-editor.org/rfc/rfc6350) |
 | `mecard` | MECARD contact | `MECARD:` | partial | de-facto, see [ZXing: Barcode Contents](https://github.com/zxing/zxing/wiki/Barcode-Contents) |
 | `wifi` | Wi-Fi network | `WIFI:` | full | de-facto, see [ZXing: Barcode Contents](https://github.com/zxing/zxing/wiki/Barcode-Contents) |
@@ -132,6 +133,18 @@ parser is `raw`.
   states the QR code is valid for up to 30 days. Fields 4, 23 and 24 are unknown and passed through.
 - **Privacy:** contains both names and addresses.
 
+**`beihilfe_form`**
+- No specification is published. The layout was inferred from 13 documents from 2016 to 2021 (one code per
+  page), so the fields sit under `inferred` with a caveat:
+  `H001;V 10.2016;<UUID>;<page>;<8 digits>;<surname>;<first name>;`
+- `H001` was on applications, `X_H001` on the office's notices (approvals, assessments).
+- `V MM.YYYY` reads as the form version.
+- The UUID was the same on every page of a document and differed between documents.
+- The 8-digit number was the same in every document, so it is most likely the applicant's personnel number
+  (`person_number`).
+- An application on a 2013 form had only `H001;` and the form version; it is recognised too.
+- **Privacy:** contains the applicant's name and number.
+
 **`deutsche_post_franking`**
 - `DEA` = DE (Germany) + A (Deutsche Post), as documented by Deutsche Post. The rest of the layout is not
   published; Deutsche Post's own DataMatrixCodeChecker reads it.
@@ -165,6 +178,9 @@ parser is `raw`.
 - Observed plain parts of eP: `eP` + 8 digits + base64 (16 bytes) + 1 digit + base64 (32 bytes) + 10 digits.
   The last 4 digits matched the invoice counter of the billing centre's account number in two samples.
   This observation is not used by the parser.
+- An older eP layout with `_` separators turned up on lab invoices from 2018 and 2019: `eP` + 18 digits +
+  `_1_au_` + 9 digits (the first six read as a YYMMDD date one to two weeks before the invoice) + base64
+  (32 bytes) + 10 digits. It is recognised the same way.
 
 **`kbv_form`**
 - Every form starts with:

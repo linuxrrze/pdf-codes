@@ -208,7 +208,8 @@ def deutsche_post_franking(data: bytes, aim=None) -> dict | None:
     return result
 
 
-PKV_CODE_RE = re.compile(r"^e([AP])\d[0-9A-Za-z+/=]{20,}$")
+# "_" occurs in an older layout seen on 2018-2019 lab invoices: eP<18 digits>_1_au_<9 digits><base64><10 digits>.
+PKV_CODE_RE = re.compile(r"^e([AP])\d[0-9A-Za-z+/=_]{20,}$")
 PKV_KINDS = {
     "A": ("elektronischer Abrechnungscode", "personal data: invoice recipient's address, patient's date of birth"),
     "P": ("elektronischer Positionscode", "the invoice data needed for machine processing, without personal data"),

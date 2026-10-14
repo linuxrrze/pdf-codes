@@ -211,6 +211,13 @@ def test_pkv_invoice_code():
     assert classify(b"ePrivat123", "]d1")["type"] == "raw"
 
 
+def test_pkv_invoice_code_older_layout():
+    old = (b"eP123456789012345678_1_au_260105123" + b"UVJTVFVWV1hZWmFiY2RlZmdoaWprbG1ub3BxcnN0dXY="
+           + b"1001345678")
+    p = classify(old, "]d1")
+    assert p["type"] == "pkv_invoice_code" and p["code"] == "eP"
+
+
 def test_raw_fallback_and_ordering():
     assert classify(b"just some text")["type"] == "raw"
     assert classify(b"\x00\xff\xfe binary")["type"] == "raw"
