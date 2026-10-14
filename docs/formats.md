@@ -239,10 +239,5 @@ validation and conversion use Java.
 
 ## Adding a format
 
-1. Write a parser, either as a module in `src/code_tools/codes/parsers/` or as a function in `generic.py`. Its
-   signature is `match(data: bytes, aim: str | None) -> dict | None`. Return `None` unless the header
-   matches. Check the symbology via `aim` when the format prescribes one; `aim` is `None` when called from
-   `code-parse`.
-2. Register it in `PARSERS` in `src/code_tools/codes/classify.py`.
-3. Add tests with invented data only. Real codes often contain personal or health data.
-4. Add a row and notes to this page, with a specification link and the decoding level.
+[adding-a-parser.md](adding-a-parser.md) explains how to write, register, test and document a parser, and how to
+bring saved scan results up to date with `code-reparse`.

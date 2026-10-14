@@ -40,9 +40,13 @@ TYPES = [name for name, _ in PARSERS] + ["raw"]
 
 
 def classify(data: bytes, aim: str | None = None) -> dict:
-    """``aim`` is the AIM symbology identifier reported by the decoder (e.g. ``]Q3`` for GS1 QR)."""
+    """``aim`` is the AIM symbology identifier reported by the decoder (e.g. ``]Q3`` for GS1 QR).
+
+    Every result starts with ``type``, ``valid``, ``errors`` and ``warnings``, whether the parser set them or not.
+    """
     for _name, parser in PARSERS:
         result = parser(data, aim)
         if result is not None:
-            return result
-    return {"type": "raw", "valid": True, "errors": []}
+            return {"type": result["type"], "valid": result.get("valid", True), "errors": result.get("errors", []),
+                    "warnings": result.get("warnings", []), **result}
+    return {"type": "raw", "valid": True, "errors": [], "warnings": []}

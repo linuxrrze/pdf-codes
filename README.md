@@ -13,6 +13,7 @@ Every tool does one job and follows the same rules:
 |---|---|
 | `code-scan` | Find and decode every QR code / barcode in PDFs **and images** (PNG, JPEG, TIFF, WebP, ...), anywhere on the page, and classify its payload |
 | `code-parse` | Classify and parse barcode payloads from stdin (EPC, Swiss QR-bill, GS1, vCard, WiFi, URL, ...) |
+| `code-reparse` | Refresh the payloads in saved `code-scan` output with the current parsers, without scanning again |
 | `pdf-attachments` | List or extract embedded files |
 | `einvoice-info` | Detect ZUGFeRD / Factur-X / XRechnung: standard, profile, consistency warnings |
 | `zugferd2xrechnung` | Extract the invoice XML (CII as embedded, or converted to UBL) |
@@ -55,6 +56,9 @@ code-scan receipt.jpg scan.tif
 # Same, safe for multi-line payloads; parse later
 code-scan --raw -0 doc.pdf | code-parse -0
 
+# After updating code-tools: bring saved scan results up to date without scanning again
+code-reparse --summary --in-place results/*.jsonl
+
 # Extract the XRechnung, then validate it
 zugferd2xrechnung rechnung.pdf | einvoice-validate -
 
@@ -95,7 +99,8 @@ Each record contains:
 Payload types include `epc`, `swiss_qr`, `gs1`, `iata_bcbp`, `kassensichv_receipt`, `uic_ticket`, `kbv_form`,
 `pkv_invoice_code`, `deutsche_post_franking`, `dhl_return_label`, `beihilfe_form`,
 `vcard`, `wifi`, `url` and more. [docs/formats.md](docs/formats.md) lists every recognised format with how far
-it is decoded and a link to its specification.
+it is decoded and a link to its specification; [docs/adding-a-parser.md](docs/adding-a-parser.md) explains how to
+add one.
 
 How classification works:
 - The first parser whose header matches decides the type, and then validates the structure (IBAN checksums,

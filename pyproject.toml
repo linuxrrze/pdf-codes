@@ -19,6 +19,7 @@ dependencies = [
 [project.scripts]
 code-scan = "code_tools.cli.code_scan:cli"
 code-parse = "code_tools.cli.code_parse:cli"
+code-reparse = "code_tools.cli.code_reparse:cli"
 pdf-attachments = "code_tools.cli.pdf_attachments:cli"
 einvoice-info = "code_tools.cli.einvoice_info:cli"
 zugferd2xrechnung = "code_tools.cli.zugferd2xrechnung:cli"
