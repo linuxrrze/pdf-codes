@@ -238,3 +238,21 @@ def test_code_parse_cli(invoke):
     assert r.code == 1 and len(r.records) == 2
     r = invoke(code_parse.main, "--aim", "]d2", stdin=b"0109506000134352\n")
     assert r.records[0]["payload"]["type"] == "gs1"
+
+
+def test_crashing_parser_becomes_an_error(monkeypatch):
+    from code_tools.codes import classify as classify_module
+
+    def broken(data, aim=None):
+        if data.startswith(b"BOOM"):
+            raise IndexError("list index out of range")
+        return None
+
+    monkeypatch.setattr(classify_module, "PARSERS", [("broken", broken), *classify_module.PARSERS])
+    p = classify_module.classify(b"BOOM https://example.org", "]Q1")
+    assert p == {"type": "raw", "valid": False, "warnings": [],
+                 "errors": ["internal error in the broken parser: IndexError: list index out of range"]}
+    assert classify_module.classify(b"https://example.org", "]Q1")["type"] == "url"  # others unaffected
+
+    monkeypatch.setattr(classify_module, "PARSERS", [("no_type", lambda data, aim=None: {"valid": True})])
+    assert "internal error in the no_type parser: KeyError" in classify_module.classify(b"x")["errors"][0]

@@ -3,6 +3,10 @@
 Each parser checks a distinctive header and then validates the structure. A parser that recognises its
 header always claims the payload, reporting ``valid: false`` plus ``errors`` if the structure is broken, so a
 damaged payment code is still reported as one. Payloads no parser recognises are ``raw``.
+
+A parser that crashes is a bug, but it must not abort the scan of a whole document. Its payload is reported as
+``raw`` with ``valid: false`` and an error naming the parser. Later parsers are not tried: a crash may come
+after the parser recognised its format, and a looser parser such as ``url`` would then misreport the payload.
 """
 
 from __future__ import annotations
@@ -44,9 +48,14 @@ def classify(data: bytes, aim: str | None = None) -> dict:
 
     Every result starts with ``type``, ``valid``, ``errors`` and ``warnings``, whether the parser set them or not.
     """
-    for _name, parser in PARSERS:
-        result = parser(data, aim)
-        if result is not None:
-            return {"type": result["type"], "valid": result.get("valid", True), "errors": result.get("errors", []),
-                    "warnings": result.get("warnings", []), **result}
+    for name, parser in PARSERS:
+        try:
+            result = parser(data, aim)
+            if result is not None:
+                return {"type": result["type"], "valid": result.get("valid", True),
+                        "errors": result.get("errors", []), "warnings": result.get("warnings", []), **result}
+        except Exception as exc:  # a parser bug must not abort the scan
+            return {"type": "raw", "valid": False,
+                    "errors": [f"internal error in the {name} parser: {type(exc).__name__}: {exc}"],
+                    "warnings": []}
     return {"type": "raw", "valid": True, "errors": [], "warnings": []}

@@ -31,8 +31,10 @@ def match(data: bytes, aim: str | None = None) -> dict | None:
 - `aim` is the [AIM symbology identifier](#aim-symbology-identifiers), for example `]Q1` for a QR code. It is
   `None` when the payload comes from `code-parse` without `--aim`, so never require it. Use it only to rule
   out a symbology that the format does not allow.
-- **Never raise.** `classify()` does not catch exceptions: a crash in one parser aborts the scan of the whole
-  document. Catch your own parsing errors and report them in `errors`.
+- **Never raise.** Catch your own parsing errors and report them in `errors`. As a safety net, `classify()`
+  catches a crash and reports the payload as `raw` with `"valid": false` and the error
+  `internal error in the <name> parser: ...`, without trying the remaining parsers. The scan goes on, but the
+  payload is lost to its real type, so treat that error as a bug.
 
 ### The module docstring
 
