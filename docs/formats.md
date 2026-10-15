@@ -24,7 +24,7 @@ parser is `raw`.
 | `epc` | EPC QR code ("GiroCode"), SEPA credit transfer | `BCD` header, version, charset, `SCT`/`INST` | full | EPC069-12, [European Payments Council](https://www.europeanpaymentscouncil.eu/document-library/guidance-documents/quick-response-code-guidelines-enable-data-capture-initiation) |
 | `swiss_qr` | Swiss QR-bill (payment part) | `SPC` / `02xx` / `1` header | full | SIX Implementation Guidelines, [six-group.com](https://www.six-group.com/en/products-services/banking-services/payment-standardization/standards/qr-bill.html) |
 | `emvco_mpm` | EMVCo merchant-presented QR code: PIX, PromptPay, PayNow, QRIS, VietQR and other instant-payment codes | `000201` + ID-length-value objects, `6304` + CRC-16 at the end | full; CRC checked | EMV QRCPS Merchant-Presented Mode 1.1, [EMVCo](https://www.emvco.com) (free registration) |
-| `gs1` | GS1 element strings (GS1-128, GS1 DataMatrix/QR/DataBar/DotCode) | AIM identifier `]C1` `]d2` `]Q3` `]e0` `]J1`, or `(AI)…` text | partial | GS1 General Specifications, [gs1.org](https://www.gs1.org/standards/barcodes-epcrfid-id-keys/gs1-general-specifications) |
+| `gs1` | GS1 element strings (GS1-128, GS1 DataMatrix/QR/DataBar/DotCode) and EAN/UPC product codes, with ISBN, ISSN and ISMN | AIM identifier `]C1` `]d2` `]Q3` `]e0` `]J1`, EAN/UPC `]E0` `]E3` `]E4`, or `(AI)…` text | partial | GS1 General Specifications, [gs1.org](https://www.gs1.org/standards/barcodes-epcrfid-id-keys/gs1-general-specifications) |
 | `iso15434` | ISO/IEC 15434 envelope: IFA PPN / securPharm codes on German medicine packs, component labels, UPS MaxiCode | `[)>` RS + format + GS-separated fields | full for format 06 data identifiers and PPN; partial otherwise | ISO/IEC 15434 (not freely available); ANSI MH10.8.2 (MHI, free); IFA specification for securPharm codes |
 | `uic_ticket` | Rail ticket (UIC 918.3), e.g. Deutsche Bahn online tickets | `#UT` + version, issuer, key ID | partial | UIC leaflet 918-3 (not freely available); layouts from [uic-918-3](https://github.com/justusjonas74/uic-918-3) (MIT) |
 | `icao_vds` | ICAO Visible Digital Seal: visas, German arrival attestations, residence permits, address stickers, social insurance cards, administrative documents (Meldebescheinigung) | `0xDC`, version 0x02/0x03, C40 country code; DataMatrix | full for the profiles listed in the notes; signature not verified | ICAO Doc 9303 Part 13; [BSI TR-03137](https://www.bsi.bund.de/EN/Themen/Unternehmen-und-Organisationen/Standards-und-Zertifizierung/Technische-Richtlinien/TR-nach-Thema-sortiert/tr03137/tr-03137.html); profile tables cross-checked with [vdstools](https://github.com/tsenger/vdstools) |
@@ -82,6 +82,13 @@ parser is `raw`.
 - Checks the check digits of GTIN, SSCC and GLN.
 - Converts dates (YYMMDD) and decimal measures (`310n` etc.).
 - Names only the common application identifiers.
+- EAN-13, EAN-8, UPC-A and UPC-E are reported as one GTIN (AI 01), with the check digit validated; UPC-E is
+  expanded to UPC-A first. Plain digits are only claimed when the decoder reports an EAN/UPC symbology.
+- A GTIN-13 with prefix 978 or 979-1...9 is an ISBN (`isbn13`, plus `isbn10` for 978), 979-0 an ISMN, and 977 an
+  ISSN (`issn` with its mod-11 check character, and the two-digit `variant`). This also applies to AI 01 in
+  GS1 element strings.
+- An EAN add-on (`]E3`: two digits, e.g. a periodical's issue number, or five, e.g. a book price) is passed
+  through as `add_on`. `code-scan` does not read add-ons at the moment.
 
 **`uic_ticket`**
 - Container: `#UT`, version, issuer (RICS code, e.g. `0080` = Deutsche Bahn), key ID, signature (50 bytes for

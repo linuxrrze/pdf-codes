@@ -132,6 +132,53 @@ def test_gs1_needs_marker():
     assert gs1.match(b"]C10109506000134352", None)["valid"]
 
 
+def test_ean_upc_are_gs1_gtins():
+    p = classify(b"4006381333931", "]E0")
+    assert p["type"] == "gs1" and p["valid"], p["errors"]
+    assert p["gtin"] == "4006381333931" and p["hri"] == "(01)04006381333931"
+    assert classify(b"96385074", "]E4")["gtin"] == "96385074"  # EAN-8
+    assert classify(b"036000291452", "]E0")["hri"] == "(01)00036000291452"  # UPC-A
+    upc_e = classify(b"01234565", "]E0")
+    assert upc_e["gtin"] == "012345000065" and upc_e["valid"]
+    assert gs1.upc_e_to_a("04252614") == "042100005264"
+    bad = classify(b"4006381333932", "]E0")
+    assert bad["type"] == "gs1" and not bad["valid"] and "check digit" in bad["errors"][0]
+
+
+@pytest.mark.parametrize("ean, expected", [
+    ("9783161484100", {"isbn13": "9783161484100", "isbn10": "316148410X"}),
+    ("9780306406157", {"isbn13": "9780306406157", "isbn10": "0306406152"}),
+    ("9791032305690", {"isbn13": "9791032305690"}),                      # 979-1..9: no ISBN-10
+    ("9790260000438", {"ismn": "9790260000438"}),                        # 979-0: printed music
+    ("9770378595002", {"issn": "0378-5955", "variant": "00"}),
+    ("9771144875007", {"issn": "1144-875X", "variant": "00"}),
+])
+def test_publication_numbers(ean, expected):
+    p = classify(ean.encode(), "]E0")
+    assert p["valid"], p["errors"]
+    element = p["elements"][0]
+    assert {k: v for k, v in element.items() if k not in ("ai", "name", "value")} == expected
+    # The same GTIN inside a GS1 element string is read the same way.
+    assert gs1.match(f"(01)0{ean}".encode())["elements"][0] == element
+
+
+def test_ean_add_on():
+    p = classify(b"977037859500205", "]E3")
+    assert p["valid"] and p["add_on"] == "05" and p["elements"][0]["issn"] == "0378-5955"
+    assert classify(b"9783161484100 51995", "]E3")["add_on"] == "51995"
+    assert classify(b"977037859500205", "]E0")["type"] == "raw"  # an add-on needs ]E3
+
+
+@pytest.mark.parametrize("payload, aim", [
+    (b"9783161484100", None),        # plain digits without a symbology are not claimed
+    (b"9783161484100", "]Q1"),
+    (b"97831614841", "]E0"),          # wrong length
+    (b"ISBN 9783161484100", "]E0"),
+])
+def test_not_ean(payload, aim):
+    assert classify(payload, aim)["type"] != "gs1"
+
+
 @pytest.mark.parametrize("payload, kind, field, value", [
     (b"BEGIN:VCARD\nVERSION:3.0\nFN:Erika Mustermann\nTEL;TYPE=work:+49 30 1234\nEND:VCARD", "vcard", "name",
      "Erika Mustermann"),
