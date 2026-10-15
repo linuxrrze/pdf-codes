@@ -1,4 +1,4 @@
-"""General-purpose payloads: vCard, MECARD, WiFi, mailto, tel, sms, geo, URL, plus header-only detection of
+"""General-purpose payloads: vCard, iCalendar, MECARD, WiFi, mailto, tel, sms, geo, URL, plus header-only detection of
 EU digital COVID certificates, the German medication plan (BMP), Deutsche Post
 franking marks and the eA/eP codes of German private medical invoices."""
 
@@ -60,6 +60,54 @@ def vcard(data: bytes, aim=None) -> dict | None:
             "name": first("FN") or first("N"), "organisation": first("ORG"), "title": first("TITLE"),
             "phones": props.get("TEL", []), "emails": props.get("EMAIL", []), "urls": props.get("URL", []),
             "addresses": props.get("ADR", []), "note": first("NOTE")}
+
+
+def _ical_unescape(value: str) -> str:
+    return re.sub(r"\\([\\;,nN])", lambda m: "\n" if m.group(1) in "nN" else m.group(1), value)
+
+
+def _ical_time(value: str, params: str) -> str:
+    """RFC 5545 DATE / DATE-TIME -> ISO; floating and TZID times stay local, UTC keeps its Z."""
+    m = re.fullmatch(r"(\d{4})(\d\d)(\d\d)(?:T(\d\d)(\d\d)(\d\d)(Z?))?", value)
+    if not m:
+        return value
+    y, mo, d, h, mi, s, z = m.groups()
+    iso = f"{y}-{mo}-{d}" + (f"T{h}:{mi}:{s}{z}" if h else "")
+    tz = re.search(r"(?i)TZID=([^;:]+)", params)
+    return f"{iso} ({tz.group(1)})" if tz and not z else iso
+
+
+def icalendar(data: bytes, aim=None) -> dict | None:
+    """iCalendar event (RFC 5545), with or without the VCALENDAR wrapper that ZXing leaves out."""
+    text = _text(data)
+    head = text.lstrip().upper() if text else ""
+    if not (head.startswith("BEGIN:VEVENT") or head.startswith("BEGIN:VCALENDAR")):
+        return None
+    lines = re.sub(r"\r?\n[ \t]", "", text).splitlines()
+    events, current, errors = [], None, []
+    for line in lines:
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        name, _, params = key.partition(";")
+        name = name.upper()
+        if name == "BEGIN" and value.strip().upper() == "VEVENT":
+            current = {}
+        elif name == "END" and value.strip().upper() == "VEVENT" and current is not None:
+            events.append(current)
+            current = None
+        elif current is not None:
+            if name in ("DTSTART", "DTEND", "DUE"):
+                current[name.lower()] = _ical_time(value.strip(), params)
+            elif name in ("SUMMARY", "LOCATION", "DESCRIPTION", "URL", "ORGANIZER", "UID", "RRULE"):
+                current[name.lower()] = _ical_unescape(value)
+    if current is not None:
+        errors.append("missing END:VEVENT")
+        events.append(current)
+    if not events:
+        errors.append("no event (VEVENT)")
+    errors += [f"event {i}: DTSTART missing" for i, e in enumerate(events, 1) if "dtstart" not in e]
+    return {"type": "icalendar", "valid": not errors, "errors": errors, "events": events}
 
 
 def mecard(data: bytes, aim=None) -> dict | None:

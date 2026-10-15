@@ -256,3 +256,27 @@ def test_crashing_parser_becomes_an_error(monkeypatch):
 
     monkeypatch.setattr(classify_module, "PARSERS", [("no_type", lambda data, aim=None: {"valid": True})])
     assert "internal error in the no_type parser: KeyError" in classify_module.classify(b"x")["errors"][0]
+
+
+def test_icalendar_event():
+    # ZXing writes events without the VCALENDAR wrapper.
+    data = (b"BEGIN:VEVENT\r\nSUMMARY:Team meeting\\, room 2\r\n"
+            b"DTSTART:20261015T090000Z\r\nDTEND:20261015T100000Z\r\n"
+            b"LOCATION:Erlangen\r\nDESCRIPTION:Agenda:\\nitem one\r\nEND:VEVENT\r\n")
+    p = classify(data, "]Q1")
+    assert p["type"] == "icalendar" and p["valid"], p["errors"]
+    assert p["events"] == [{"summary": "Team meeting, room 2", "dtstart": "2026-10-15T09:00:00Z",
+                            "dtend": "2026-10-15T10:00:00Z", "location": "Erlangen",
+                            "description": "Agenda:\nitem one"}]
+
+
+def test_icalendar_calendar_with_dates_and_problems():
+    data = (b"BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nSUMMARY:Holiday\nDTSTART;VALUE=DATE:20261224\nEND:VEVENT\n"
+            b"BEGIN:VEVENT\nSUMMARY:Call\nDTSTART;TZID=Europe/Berlin:20261015T090000\nEND:VEVENT\nEND:VCALENDAR")
+    p = classify(data)
+    assert p["valid"] and [e["dtstart"] for e in p["events"]] == ["2026-12-24", "2026-10-15T09:00:00 (Europe/Berlin)"]
+    p = classify(b"BEGIN:VEVENT\nSUMMARY:No start\n")
+    assert p["type"] == "icalendar" and not p["valid"]
+    assert p["errors"] == ["missing END:VEVENT", "event 1: DTSTART missing"]
+    assert classify(b"BEGIN:VCALENDAR\nEND:VCALENDAR")["errors"] == ["no event (VEVENT)"]
+    assert classify(b"BEGIN:VCARD\nFN:x\nEND:VCARD")["type"] == "vcard"

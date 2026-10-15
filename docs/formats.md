@@ -23,20 +23,27 @@ parser is `raw`.
 |---|---|---|---|---|
 | `epc` | EPC QR code ("GiroCode"), SEPA credit transfer | `BCD` header, version, charset, `SCT`/`INST` | full | EPC069-12, [European Payments Council](https://www.europeanpaymentscouncil.eu/document-library/guidance-documents/quick-response-code-guidelines-enable-data-capture-initiation) |
 | `swiss_qr` | Swiss QR-bill (payment part) | `SPC` / `02xx` / `1` header | full | SIX Implementation Guidelines, [six-group.com](https://www.six-group.com/en/products-services/banking-services/payment-standardization/standards/qr-bill.html) |
+| `emvco_mpm` | EMVCo merchant-presented QR code: PIX, PromptPay, PayNow, QRIS, VietQR and other instant-payment codes | `000201` + ID-length-value objects, `6304` + CRC-16 at the end | full; CRC checked | EMV QRCPS Merchant-Presented Mode 1.1, [EMVCo](https://www.emvco.com) (free registration) |
 | `gs1` | GS1 element strings (GS1-128, GS1 DataMatrix/QR/DataBar/DotCode) | AIM identifier `]C1` `]d2` `]Q3` `]e0` `]J1`, or `(AI)…` text | partial | GS1 General Specifications, [gs1.org](https://www.gs1.org/standards/barcodes-epcrfid-id-keys/gs1-general-specifications) |
+| `iso15434` | ISO/IEC 15434 envelope: IFA PPN / securPharm codes on German medicine packs, component labels, UPS MaxiCode | `[)>` RS + format + GS-separated fields | full for format 06 data identifiers and PPN; partial otherwise | ISO/IEC 15434 (not freely available); ANSI MH10.8.2 (MHI, free); IFA specification for securPharm codes |
 | `uic_ticket` | Rail ticket (UIC 918.3), e.g. Deutsche Bahn online tickets | `#UT` + version, issuer, key ID | partial | UIC leaflet 918-3 (not freely available); layouts from [uic-918-3](https://github.com/justusjonas74/uic-918-3) (MIT) |
+| `icao_vds` | ICAO Visible Digital Seal: visas, German arrival attestations, residence permits, address stickers, social insurance cards, administrative documents (Meldebescheinigung) | `0xDC`, version 0x02/0x03, C40 country code; DataMatrix | full for the profiles listed in the notes; signature not verified | ICAO Doc 9303 Part 13; [BSI TR-03137](https://www.bsi.bund.de/EN/Themen/Unternehmen-und-Organisationen/Standards-und-Zertifizierung/Technische-Richtlinien/TR-nach-Thema-sortiert/tr03137/tr-03137.html); profile tables cross-checked with [vdstools](https://github.com/tsenger/vdstools) |
 | `eu_dcc` | EU Digital COVID Certificate | `HC1:` | header | [eu-dcc-hcert-spec](https://github.com/ehn-dcc-development/eu-dcc-hcert-spec) |
 | `medication_plan` | Bundeseinheitlicher Medikationsplan (BMP) | `<MP` XML | header | [KBV: Medikationsplan](https://www.kbv.de/html/medikationsplan.php) |
 | `deutsche_post_franking` | Deutsche Post franking mark ("Matrixcode") | `DEA` + binary data, DataMatrix | header; inferred for the 42-byte variant | [Deutsche Post: Matrixcode](https://www.deutschepost.de/de/f/frankierung/matrixcode.html), layout not public |
 | `pkv_invoice_code` | eA/eP codes on private medical invoices (PKV, Beihilfe) | `eA`/`eP` + digit + base64-like text, DataMatrix | header (encrypted) | [lemniscus helpdesk](https://helpdesk.lemniscus.de/docs/rechnung-mit-ea-ep-codes), technical spec not public |
+| `erezept` | E-Rezept token (German electronic prescription printout) | JSON `{"urls": ["Task/<ID>/$accept?ac=<code>"]}`, DataMatrix | full | gematik gemSpec_DM_eRp / gemSpec_FD_eRp; [prescription ID profile](https://gemspec.gematik.de/ig/fhir/ti/1.1.1/StructureDefinition-e-prescription-id.html) |
 | `kbv_form` | KBV Blankoformular barcode on statutory medical forms ("Muster") | form number, page letters, version, TAB-separated, PDF417 | partial | [KBV Technisches Handbuch Blankoformularbedruckung](https://update.kbv.de/ita-update/Blankoformulare/KBV_ITA_VGEX_Technisches_Handbuch_BFB.pdf) |
 | `iata_bcbp` | IATA Bar Coded Boarding Pass (boarding passes, e-ticket itinerary receipts) | `M` + number of legs, fixed-width fields, hex size fields | full (mandatory and conditional items) | IATA Resolution 792 (not freely available); [BCBP Implementation Guide](https://www.iata.org/contentassets/1dccc9ed041b4f3bbdcf8ee8682e75c4/2021_03_02-bcbp-implementation-guide-version-7-.pdf); field lengths from [bcbp](https://github.com/georgesmith46/bcbp) (MIT) |
 | `kassensichv_receipt` | German cash-register receipt QR code (KassenSichV, TSE) | `V0;` + 12 fields separated by `;` | full; signature not verified | DSFinV-K 2.4, Anhang I, [Bundeszentralamt für Steuern](https://www.bzst.de/DE/Unternehmen/Aussenpruefungen/DigitaleSchnittstelleFinV/digitaleschnittstellefinv_node.html) |
+| `rksv_receipt` | Austrian cash-register receipt QR code (RKSV) | `_R1-AT<n>_` + 13 fields separated by `_` | full; signature not verified | RKSV Anlage "Detailspezifikation", [RKSV](https://gesetzefinden.at/bundesrecht/verordnungen/rksv) |
 | `dhl_return_label` | DHL return label QR code (sent by merchants for printer-free returns) | `RON\|` + 25 fields separated by `\|` | inferred; Identcode and Leitcode checked | not published; check digits: [paketda](https://www.paketda.de/firmenkunden/paket-pruefziffern.html), Leitcode layout: [ActiveBarcode](https://www.activebarcode.com/barcode/leitcode/) |
 | `beihilfe_form` | QR code on Beihilfe applications and notices | `H001;` or `X_H001;` + form version `V MM.YYYY`, QR code | inferred | not published |
 | `vcard` | vCard | `BEGIN:VCARD` | partial | [RFC 6350](https://www.rfc-editor.org/rfc/rfc6350) |
+| `icalendar` | calendar event | `BEGIN:VEVENT` / `BEGIN:VCALENDAR` | partial | [RFC 5545](https://www.rfc-editor.org/rfc/rfc5545) |
 | `mecard` | MECARD contact | `MECARD:` | partial | de-facto, see [ZXing: Barcode Contents](https://github.com/zxing/zxing/wiki/Barcode-Contents) |
 | `wifi` | Wi-Fi network | `WIFI:` | full | de-facto, see [ZXing: Barcode Contents](https://github.com/zxing/zxing/wiki/Barcode-Contents) |
+| `otpauth` | one-time password setup (TOTP/HOTP), Google Authenticator export | `otpauth://`, `otpauth-migration://` | full | de-facto, [Key URI Format](https://github.com/google/google-authenticator/wiki/Key-Uri-Format) |
 | `mailto` | e-mail link | `mailto:` | full | [RFC 6068](https://www.rfc-editor.org/rfc/rfc6068) |
 | `tel` | phone number | `tel:` | full | [RFC 3966](https://www.rfc-editor.org/rfc/rfc3966) |
 | `sms` | SMS | `sms:` / `SMSTO:` | full | [RFC 5724](https://www.rfc-editor.org/rfc/rfc5724), `SMSTO:` is de-facto |
@@ -207,6 +214,66 @@ parser is `raw`.
   table from chapter 3 into `FIELD_TABLES` in `src/code_tools/codes/parsers/kbv.py`.
 - **Privacy:** the barcode is not encrypted and normally contains health data: diagnoses, insurer, date of
   birth, address.
+
+**`emvco_mpm`**
+- Splits the ID-length-value objects and checks that they cover the whole payload, that the CRC (ID 63) comes
+  last, and its CRC-16/CCITT-FALSE value.
+- Names the card networks of IDs 02-25 and the payment scheme of templates 26-51 by their globally unique
+  identifier (sub-ID 00), e.g. `br.gov.bcb.pix` = PIX. Unknown schemes keep their identifier.
+- Decodes merchant category, currency (ISO 4217 numeric to code), amount, tip and fees, country, merchant name
+  and city, the additional data template (62) and the alternate-language template (64).
+- Missing mandatory fields (52, 53, 58, 59, 60) are warnings: some national variants leave them out.
+
+**`iso15434`**
+- Splits the envelopes by RS and their fields by GS. A DataMatrix "Macro 05/06" is expanded by the decoder.
+- Format 06: each field is a data identifier (up to three digits and a letter) and a value; common identifiers
+  are named.
+- With a PPN (`9N`), a `pharma` block holds PPN, PZN, batch (`1T`), expiry (`D`, day `00` = end of month),
+  serial number (`S`) and GTIN (`8P`). The PPN check digits (mod 97 over ASCII values weighted from 2), the PZN
+  check digit (mod 11) and the GTIN check digit are validated. A PPN without batch, expiry or serial is a
+  warning.
+- Format 05 is split with the GS1 rules. Other formats keep their fields as they are.
+
+**`icao_vds`**
+- Header: version (0x02 = version 3, 0x03 = version 4), issuing country, signer, certificate reference, issue
+  and signature date, document type. When the version byte does not match the header layout (some arrival
+  attestations), the other layout is used and a warning is added.
+- Features are decoded for: visa and emergency travel document (ICAO), arrival attestation (Ankunftsnachweis),
+  residence permit and its supplementary sheet, address stickers for ID card and residence permit card, place
+  of residence sticker for passports, social insurance card, and administrative documents (BSI TR-03171) with
+  the Meldebescheinigung profile. MRZs come as two lines.
+- Unknown document types and tags are listed with their bytes and, where they decode, as C40 or UTF-8 text.
+- The signature is not verified; `signature_length` gives its size. The newer ICAO IDB barcodes (`RDB...`)
+  are a different format and are not recognised.
+- **Privacy:** most seals hold the holder's name, date of birth, document numbers or address.
+
+**`erezept`**
+- Decodes each token: prescription ID, flow type (160, 162, 169, 200, 209 are named) and access code.
+- Validates the ID's check digits (ISO 7064 Mod 97-10) and the 64-hex-digit access code. Unknown flow types and
+  more than three tokens are warnings.
+- **Privacy:** the ID and access code are all a pharmacy needs to redeem the prescription. Treat the code like
+  the prescription itself.
+
+**`rksv_receipt`**
+- Decodes algorithm, trust service provider, cash register ID, receipt number, date and time, the gross amounts
+  per VAT rate (20 %, 10 %, 13 %, 0 %, 19 %) and their total.
+- Recognises cancellation (`STO`) and training (`TRA`) receipts and a failed signature device
+  ("Sicherheitseinrichtung ausgefallen", a warning).
+- Checks the formats of date, amounts and the base64 fields. The signature is not verified, because the
+  certificate is not part of the code.
+
+**`icalendar`**
+- Reads every `VEVENT`: summary, start, end, location, description, URL, organiser, UID and repeat rule.
+  Dates become ISO; a local time with `TZID` keeps the zone name in brackets.
+- A missing `END:VEVENT` or `DTSTART` is an error.
+
+**`otpauth`**
+- Key URI: type, issuer, account, secret, algorithm, digits, period and counter. Checks that the secret is
+  base32 and that HOTP has a counter. An issuer parameter that differs from the label prefix is a warning.
+- Migration export: decodes the protobuf payload into its accounts (secret as base32, name, issuer, type,
+  algorithm, digits, counter) and the batch information.
+- **Privacy:** the secret lets anyone generate the one-time passwords. A migration export holds every exported
+  account.
 
 ### Symbologies
 
