@@ -88,7 +88,8 @@ parser is `raw`.
   ISSN (`issn` with its mod-11 check character, and the two-digit `variant`). This also applies to AI 01 in
   GS1 element strings.
 - An EAN add-on (`]E3`: two digits, e.g. a periodical's issue number, or five, e.g. a book price) is passed
-  through as `add_on`. `code-scan` does not read add-ons at the moment.
+  through as `add_on`. `code-scan` reads add-ons and reports the code once, with the add-on digits appended to
+  `text`.
 
 **`uic_ticket`**
 - Container: `#UT`, version, issuer (RICS code, e.g. `0080` = Deutsche Bahn), key ID, signature (50 bytes for

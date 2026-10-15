@@ -40,6 +40,39 @@ def zxing_image(content: str, fmt: zxingcpp.BarcodeFormat, scale: int = 3, **kwa
     return out
 
 
+EAN_L = ["0001101", "0011001", "0010011", "0111101", "0100011", "0110001", "0101111", "0111011", "0110111",
+         "0001011"]
+EAN_G = ["".join("1" if c == "0" else "0" for c in code)[::-1] for code in EAN_L]
+
+
+def ean_add_on_modules(digits: str) -> str:
+    """Bars of a 2- or 5-digit EAN add-on (GS1 General Specifications 5.2.3.4), 1 = dark module."""
+    if len(digits) == 2:
+        parity = ["LL", "LG", "GL", "GG"][int(digits) % 4]
+    else:
+        check = (3 * sum(int(d) for d in digits[::2]) + 9 * sum(int(d) for d in digits[1::2])) % 10
+        parity = ["GGLLL", "GLGLL", "GLLGL", "GLLLG", "LGGLL", "LLGGL", "LLLGG", "LGLGL", "LGLLG", "LLGLG"][check]
+    bars = "1011"
+    for i, (d, p) in enumerate(zip(digits, parity)):
+        bars += ("01" if i else "") + (EAN_L if p == "L" else EAN_G)[int(d)]
+    return bars
+
+
+def ean13_with_add_on(ean: str, add_on: str, scale: int = 3) -> Image.Image:
+    main = zxing_image(ean, zxingcpp.BarcodeFormat.EAN13, scale=scale)
+    bars = ean_add_on_modules(add_on)
+    pad = 10 * scale  # zxing_image's quiet zone
+    last_bar = max(x for x in range(main.size[0]) if main.getpixel((x, main.size[1] // 2)) < 128)
+    x0 = last_bar + 1 + 9 * scale  # nine modules between the main symbol and the add-on
+    out = Image.new("L", (x0 + (len(bars) + 10) * scale, main.size[1]), 255)
+    out.paste(main, (0, 0))
+    top = pad + (main.size[1] - 2 * pad) // 6  # add-on bars are shorter, leaving room for their digits
+    for i, bar in enumerate(bars):
+        if bar == "1":
+            out.paste(0, (x0 + i * scale, top, x0 + (i + 1) * scale, main.size[1] - pad))
+    return out
+
+
 def _fmt(v: float) -> str:
     return f"{v:.4f}".rstrip("0").rstrip(".")
 

@@ -7,6 +7,10 @@ Passes (see ``ScanOptions``):
 3. every embedded raster image at its native resolution, including images nested in form XObjects;
 4. with ``thorough``: a 1200 dpi tile pass and alternative binarisers for faded scans.
 
+EAN/UPC add-ons (two digits on periodicals, five on books) are read when present and appended to the main code's
+digits, with AIM identifier ]E3. zxing-cpp then also reports the code without its add-on; that duplicate is
+dropped when the two overlap.
+
 Pages are rendered over the full MediaBox with page rotation removed, so pixel coordinates map linearly to PDF
 user space. Hits from all passes are merged when they have the same symbology and bytes and overlapping boxes.
 
@@ -89,7 +93,8 @@ def parse_formats(spec: str | None) -> zxingcpp.BarcodeFormats | None:
 
 
 def _decode(img: Image.Image, opts: ScanOptions, binarizer=None) -> list:
-    kwargs = {"try_rotate": True, "try_invert": True, "try_downscale": True}
+    kwargs = {"try_rotate": True, "try_invert": True, "try_downscale": True,
+              "ean_add_on_symbol": zxingcpp.EanAddOnSymbol.Read}
     if opts.formats is not None:
         kwargs["formats"] = opts.formats
     if binarizer is not None:
@@ -202,7 +207,11 @@ def merge_hits(hits: list[Hit]) -> list[Hit]:
                 break
         else:
             merged.append(hit)
-    return merged
+    with_add_on = [h for h in merged if h.aim == "]E3"]
+    return [h for h in merged
+            if not (h.aim and h.aim.startswith("]E") and h.aim != "]E3"
+                    and any(a.symbology == h.symbology and a.data.startswith(h.data) and _overlaps(a.bbox, h.bbox)
+                            for a in with_add_on))]
 
 
 def scan_page(doc: pdfium.PdfDocument, index: int, opts: ScanOptions) -> list[Hit]:

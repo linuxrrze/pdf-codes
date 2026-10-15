@@ -76,7 +76,8 @@ xrechnung2zugferd scan.tif invoice_uncefact.xml -o zugferd.pdf
 
 Codes can be anywhere: in a corner or margin, rotated at any angle, inverted, tiny, drawn as vector paths,
 embedded as images, inside form XObjects or annotations, or outside the visible crop area. `code-scan` runs
-several passes and merges the results, so each code is reported once.
+several passes and merges the results, so each code is reported once. EAN/UPC add-ons (the small extra code
+on magazines and books) are read and appended to the main code's digits.
 
 1. **Full page** at `--dpi` (300), rendered over the whole MediaBox with annotations and form fields included.
 2. **Overlapping tiles** at `--tile-dpi` (600), for small codes. The tiles overlap by at least `--max-code-mm`

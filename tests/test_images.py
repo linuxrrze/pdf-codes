@@ -8,9 +8,9 @@ import pikepdf
 import pytest
 from PIL import Image
 
-from pdfgen import matrix_image, qr_matrix
+from pdfgen import ean13_with_add_on, matrix_image, qr_matrix
 from code_tools.cli import einvoice_info, code_scan, xrechnung2zugferd
-from code_tools.codes.scan import ScanOptions, scan_image
+from code_tools.codes.scan import Hit, ScanOptions, merge_hits, scan_image
 from code_tools.core.imageio import Frame, images_to_pdf, open_frames
 from test_einvoice import MINIMAL_CII
 
@@ -126,3 +126,27 @@ def test_zugferd_from_scanned_invoice(invoke, tmp_path):
     assert rec["profile"] == "MINIMUM" and rec["warnings"] == [] and rec["pdfa"]["part"] == "3"
     with pikepdf.open(out) as pdf:
         assert len(pdf.pages) == 1 and "/OutputIntents" in pdf.Root
+
+
+@pytest.mark.parametrize("ean, add_on", [("9770378595002", "05"), ("9783161484100", "51995")])
+def test_ean_add_on_is_read_and_merged(invoke, tmp_path, ean, add_on):
+    path = tmp_path / "cover.png"
+    path.write_bytes(encode(page_with(ean13_with_add_on(ean, add_on)), "PNG"))
+    r = invoke(code_scan.main, path)
+    assert r.code == 0, r.stderr
+    (rec,) = r.records  # the code without its add-on is not reported separately
+    assert rec["text"] == ean + add_on and rec["symbology_identifier"] == "]E3"
+    assert rec["payload"]["type"] == "gs1" and rec["payload"]["add_on"] == add_on
+
+
+def test_plain_ean_dropped_only_when_its_add_on_version_overlaps():
+    def hit(data: bytes, aim: str, x: float) -> Hit:
+        return Hit(page=1, symbology="EAN13", aim=aim, content_type="Text", text=data.decode(), data=data,
+                   bbox=(x, 0, x + 100, 50), sources=["render"])
+
+    plain, with_add_on = hit(b"9770378595002", "]E0", 0), hit(b"977037859500205", "]E3", 0)
+    assert merge_hits([plain, with_add_on]) == [with_add_on]
+    elsewhere = hit(b"9770378595002", "]E0", 500)  # the same product printed a second time
+    assert merge_hits([elsewhere, with_add_on]) == [elsewhere, with_add_on]
+    other = hit(b"4006381333931", "]E0", 0)
+    assert merge_hits([other, with_add_on]) == [other, with_add_on]
